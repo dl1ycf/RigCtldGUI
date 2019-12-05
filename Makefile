@@ -46,6 +46,8 @@ clean:
 ####################################################################
 #
 # NOTE: "make app" is for Macintosh OSX only
+#       Files only needed to build a MacOS "app":
+#       PkgInfo, Info.plist, Rig.icns
 #
 ####################################################################
 app:  Rig

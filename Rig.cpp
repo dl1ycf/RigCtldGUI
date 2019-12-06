@@ -1080,8 +1080,10 @@ void do_modeinp(Fl_Widget *w, void *data)
    // Convert input field to upper case
     char *val = (char *) (((Fl_Input *) w)->value());
     while (*val) { *val=toupper(*val); val++; }
+#ifdef __APPLE__
     // This triggers sending the changed mode
     mldx_last_freq=-1.0;
+#endif
 }
 
 void do_cwinp(Fl_Widget *w, void* data )

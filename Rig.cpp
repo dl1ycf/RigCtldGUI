@@ -1005,7 +1005,7 @@ int line,pos,p1,p2,i;
     p=(char *)text;
     q=word;
     for(;;) {
-        switch (*p) {
+        switch ((signed char) *p) {
 	  case '!':
 	    // get number and replace by active CW text
  	    switch (*(++p)) {
@@ -1023,7 +1023,7 @@ int line,pos,p1,p2,i;
 	    break;
 	  case -61:  // convert some unicode two-byte characters
 	    p++;
-	    if (q-word < 98) switch(*p) {
+	    if (q-word < 98) switch((signed char) *p) {
 		case -74:
 		case -106:
 		    *q++='O'; *q++='E';

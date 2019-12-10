@@ -1010,7 +1010,6 @@ char word[100];
 char *p, *q, *r;
 int line,pos,p1,p2,i;
 
-    fprintf(stderr,"SPLITCW TXT >>%s<<\n", text);
     p=(char *)text;
     q=word;
     for(;;) {

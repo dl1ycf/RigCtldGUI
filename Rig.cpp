@@ -460,6 +460,7 @@ int main(int argc, char **argv) {
     const   PaDeviceInfo *deviceInfo;
     PaStreamParameters outputParameters;
     PaError err;
+    char name[100]; int j;
 
 
        err = Pa_Initialize();
@@ -474,10 +475,18 @@ int main(int argc, char **argv) {
                outputParameters.suggestedLatency = 0; /* ignored by Pa_IsFormatSupported() */
                outputParameters.hostApiSpecificStreamInfo = NULL;
                if (Pa_IsFormatSupported(NULL, &outputParameters, 48000.0) == paFormatIsSupported) {
-		 sounddevname[numsounddev]=deviceInfo->name;
-                 sounddev[numsounddev++] =i;
-                 SoundCard->add(deviceInfo->name);
-		 
+                 strcpy(name,deviceInfo->name);
+		 // for the time being, ignore "dmix" devices
+		 if (strncmp(name,"dmix",4)) {
+		   sounddevname[numsounddev]=deviceInfo->name;
+                   sounddev[numsounddev++] =i;
+                   strcpy(name,deviceInfo->name);
+		   // unpredictable things happen if the name contains a slash, therefore change it to colon
+                   for (j=0; j< strlen(name); j++) {
+                     if (name[j] == '/') name[j]=':';
+                   }
+                   SoundCard->add(name);
+                 }
                }
            }
       }

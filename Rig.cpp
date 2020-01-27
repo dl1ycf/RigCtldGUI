@@ -35,6 +35,8 @@
 #define SER_PORT_BASIS "/dev/ttyS"
 #endif
 
+extern int wkeymode;
+
 /*
  * This sets some defaults.
  * They are to be overrun by the preferences
@@ -303,7 +305,7 @@ int main(int argc, char **argv) {
   lab2->labelsize(14);
 
   Fl_Group *g2 = new Fl_Group(360,100,80,240);
-  speed1 = new Fl_Button(380,130,  40, 20, "12"); speed1->type(FL_RADIO_BUTTON);  speed1->color(7,5); speed1->callback(do_speed, (void *) 12);
+  speed1 = new Fl_Button(380,130,  40, 20, "");   speed1->type(FL_RADIO_BUTTON);  speed1->color(7,5); speed1->callback(do_speed, (void *) 12);
   speed2 = new Fl_Button(380,160,  40, 20, "16"); speed2->type(FL_RADIO_BUTTON);  speed2->color(7,5); speed2->callback(do_speed, (void *) 16);
   speed3 = new Fl_Button(380,190,  40, 20, "20"); speed3->type(FL_RADIO_BUTTON);  speed3->color(7,5); speed3->callback(do_speed, (void *) 20);
   speed4 = new Fl_Button(380,220,  40, 20, "24"); speed4->type(FL_RADIO_BUTTON);  speed4->color(7,5); speed4->callback(do_speed, (void *) 24);
@@ -918,6 +920,7 @@ void do_mode(Fl_Widget *, void *data)
 void do_speed(Fl_Widget *, void* data)
 {
     int val = (int) (long) data;
+    if (wkeymode == 2 && val == 12) val=0;
     set_cwspeed(val);
 }
 
@@ -966,12 +969,20 @@ void open_rig(Fl_Widget *w, void *)
 	    else if (val < 75) { set_rfpower(50); pow4->value(1); } else { set_rfpower(100); pow5->value(1); }
 
 	    // Set default CW speed (20 wpm)
-	    speed1->value(0);
+ 	    if (wkeymode == 2) {
+		speed1->label("Pot");
+	        speed1->value(1);
+	        speed3->value(0);
+	        set_cwspeed(0);
+	    } else {
+		speed1->label("12");
+	        speed1->value(0);
+	        speed3->value(0);
+	        set_cwspeed(20);
+	    }
 	    speed2->value(0);
-	    speed3->value(1);
 	    speed4->value(0);
 	    speed5->value(0);
-	    set_cwspeed(20);
 
 	    // Mode is tracked in update_freq
 	}

@@ -140,9 +140,9 @@ int open_winkey_port(const char *path)
     buf[1]=5;
     buf[2]=50;
     writeWkey(buf, 3);
-    // set SpeedPot range: 10..35 WPM
+    // set SpeedPot range: 5..30 WPM
     buf[0]=5;
-    buf[1]=10;
+    buf[1]=5;
     buf[2]=25;
     buf[3]=0;
     writeWkey(buf, 3);
@@ -153,9 +153,9 @@ int open_winkey_port(const char *path)
     buf[0]=0x0D;
     buf[1]=0;
     writeWkey(buf, 2);
-    // get speed from Speed-Pot
-    buf[0]=02;
-    buf[1]=0;
+    // Initial speed: 20 wpmt
+    buf[0]=0x02;
+    buf[1]=20;
     writeWkey(buf, 2);
     return 1;
 }
@@ -190,15 +190,15 @@ void set_winkey_speed(int speed)
 {
     unsigned char buf[2];
     if (speed > 50) speed=50;
-    if (speed < 5)  speed=5;
+    if (speed < 5 && speed != 0)  speed=5;
 #if 1
     // use Farnsworth timing with slightly faster letters
     buf[0]=0x02;
     buf[1]=speed;
     writeWkey(buf, 2);
-    buf[0]=0x0D;
-    buf[1]=speed+1;
-    writeWkey(buf, 2);
+    //buf[0]=0x0D;
+    //buf[1]=speed+1;
+    //writeWkey(buf, 2);
 #else
     // Change speed "buffered", may be changed any time by 
     // the Speed Pot.

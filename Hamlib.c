@@ -40,7 +40,7 @@ extern void set_winkey_speed(int);
 
 RIG *rig = NULL;
 
-static int wkeymode=0;   // 0: n/a, 1: CAT,  2: Wkey-Device
+int wkeymode=0;   // 0: n/a, 1: CAT,  2: Wkey-Device
 
 static ptt_t rigctl_ptt_cmd=RIG_PTT_ON;
 
@@ -330,6 +330,7 @@ void set_cwspeed(int i)
     // set keyer speed on rig even if we use WinKey
     if (wkeymode == 2) set_winkey_speed(i);
     if (can_hamlib()) {
+	if (i < 12) i=12;
 	val.i=i;
 	rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_KEYSPD, val);
 	free_hamlib();

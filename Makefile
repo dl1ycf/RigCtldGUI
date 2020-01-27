@@ -1,10 +1,40 @@
+########################################################################################################
+#
+# This Makefile assumes that a working hamlib (version 4) resides
+# in ../hamlib.
+#
+# The following C files are taken from there:
+#
+# tests/dumpcaps.c
+# tests/sprintflst.c
+# tests/rigctl_parse.c
+#
+# and the following include files are used
+#
+# include/hamlib/rig.h                        #include <hamlib/rig.h>         used everywhere
+# include/hamlib/riglist.h                    #include <hamlib/riglist.h>     via rig.h
+# include/hamlib/rig_dll.h                    #include <hamlib/rig_dll.h>     via rig.h
+# include/hamlib/amplifier.h                  #include <hamlib/amplifier.h>   via sprintflst.h
+# include/hamlib/amplist.h                    #include <hamlib/amplist.h>     via amplifier.h
+# src/misc.h                                  #include "misc.h"               via rigctl_parse.c
+# src/iofunc.h                                #include "iofunc.h"             via rigctl_parse.c
+# src/serial.h                                #include "serial.h"             via rigctl_parse.c
+# tests/sprintflist.h                         #include "sprintflst.h"         via rigctl_parse.c
+# tests/rigctl_parse.h                        #include "rigctl_parse.h"       via rigctl_parse.c
+# tests/uthash.h                              #include "uthash.h"	      vial rigctl_parse.c
+#
+# The program is then linked against the hamlib library files in ../hamlib/src/.libs
+#
+########################################################################################################
+
+#
 OBJS=		Rig.o Hamlib.o Winkey.o rigctl_parse.o dumpcaps.o sprintflst.o fmemopen.o
-LIBS=		-lfltk -lportaudio -lhamlib -lreadline -lpthread
+LIBS=		-lfltk -lportaudio -L ../hamlib/src/.libs -lhamlib -lreadline -lpthread
 CXX=		g++
 CC=		gcc
-CFLAGS=		-O
-CXXFLAGS=	-O
-HAMLIB=		../hamlib
+HAMINCLUDE=	-I../hamlib/include -I../hamlib/tests -I../hamlib/src
+CFLAGS=		-O $(HAMINCLUDE)
+CXXFLAGS=	-O $(HAMINCLUDE)
 
 #
 # NOTE: "make Rig" makes the program
@@ -13,29 +43,11 @@ HAMLIB=		../hamlib
 Rig:	$(OBJS)
 	$(CXX) -o Rig $(OBJS) $(LIBS)
 
-#
-# NOTE: we use original files from the hamlib repository, instead of
-#       copying them here. Hamlib must reside in ../hamlib
-#       we use the following files:
-#
-# tests/dumpcaps.c
-# tests/sprintflst.c
-# tests/sprintflst.h
-# tests/rigctl_parse.c
-# tests/rigctl_parse.h
-# tests/uthash.h
-#
-# src/misc.h
-# src/iofunc.h
-# src/serial.h
-#
- 
 rigctl_parse.o:
-	$(CC) $(CFLAGS) -c -I../hamlib/src -I../hamlib/tests -o $@ ../hamlib/tests/rigctl_parse.c
-
+	$(CC) $(CFLAGS) -c $(HAMINCLUDE) -o $@ ../hamlib/tests/rigctl_parse.c
 
 dumpcaps.o:
-	$(CC) $(CFLAGS) -c -I../hamlib/src -I../hamlib/tests -o $@ ../hamlib/tests/dumpcaps.c
+	$(CC) $(CFLAGS) -c $(HAMINCLUDE) -o $@ ../hamlib/tests/dumpcaps.c
 
 sprintflst.o:
 	$(CC) $(CFLAGS) -c -I../hamlib/src -I../hamlib/tests -o $@ ../hamlib/tests/sprintflst.c

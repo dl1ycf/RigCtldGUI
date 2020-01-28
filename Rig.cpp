@@ -9,11 +9,13 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Choice.H>
+#include <FL/Fl_Input_Choice.H>
 #include <FL/fl_ask.H>
 #include <FL/Fl_Output.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Slider.H>
+#include <FL/Fl_File_Chooser.H>
 
 #include "portaudio.h"
 #include "math.h"
@@ -44,8 +46,7 @@ extern int wkeymode;
  *
  */
 
-char maincall[20]="DL1AAA";
-char altcall[20]="DL0BBB";
+char mycall[150]="DL1AAA";
 
 char cwlab1[10]= "call";
 char cwlab2[10]= "cq";
@@ -53,12 +54,23 @@ char cwlab3[10]= "test";
 char cwlab4[10]= "cfm";
 char cwlab5[10]= "tu";
 
+char voicelab1[10]="Voice 1";
+char voicelab2[10]="Voice 2";
+char voicelab3[10]="Voice 3";
+char voicelab4[10]="Voice 4";
+char voicelab5[10]="Voice 5";
+
 char cwtxt1[80]="#";
 char cwtxt2[80]="cq cq cq de # # cq cq de # + k";
 char cwtxt3[80]="test de # # test";
 char cwtxt4[80]="cfm ur 5nn";
 char cwtxt5[80]="tu 73";
 
+static Fl_Input_Choice *SerialRig;
+static Fl_Button *cw1, *cw2, *cw3, *cw4, *cw5;
+static Fl_Button *voice1, *voice2, *voice3, *voice4, *voice5;
+static Fl_Window *set_cw_win;
+static Fl_Window *set_voice_win;
 
 /*
  * Some default values for rig connection.
@@ -69,24 +81,23 @@ char cwtxt5[80]="tu 73";
  * and those values are taken.
  */
 
-char defrig[150]="uh-rig";
+char defrig[150]="";
 char defptt[150]="CAT-Data";
 char defwky[150]="CAT";
-char defsnd[150]="Built-in output";
+char defsnd[150]="";
 char defham[150]="Hamlib Dummy";
 int  defbaud=9600;
 
-const char *rigdev[150], *pttdev[150], *wkeydev[150];
-int        numrigdev, numpttdev, numwkeydev;
-int        myrigdev, mypttdev, mywkeydev;
+const char *rigdev[150], *pttdev[150], *wkydev[150];
+int        numrigdev, numpttdev, numwkydev;
+const char *myrigdev;
+int        mypttdev, mywkydev;
 int        baudrates[]={1200,2400,4800, 9600, 19200,38400,115200};
 int        numbaud = sizeof(baudrates)/sizeof(int);
 int        mybaud=0;
 int        mymodel;
 const char *sounddevname[20];
 int sounddev[20];  int numsounddev=0;  int sounddevice=-1; int mysounddev=-1;
-
-const char *mycall;
 
 int        numrigs;
 struct rigs {
@@ -128,7 +139,7 @@ void do_modeinp(Fl_Widget *, void *);
 void cw_txtout(char *, int);
 
 
-void do_call (Fl_Widget *, void *);
+void do_text (Fl_Widget *, void *);
 void do_voice(Fl_Widget *, void *);
 void do_tune (Fl_Widget *, void *);
 #ifdef __APPLE__
@@ -136,6 +147,8 @@ void do_mldx (Fl_Widget *, void *);
 static int mldx_flag=1;
 static double mldx_last_freq = -1.0;
 #endif
+void do_setcw(Fl_Widget *, void *);
+void do_setvoice(Fl_Widget *, void *);
 
 static double master_volume = 0.0316;   // -30 dB
 void do_volume(Fl_Widget *, void *);
@@ -155,6 +168,7 @@ void open_rig(Fl_Widget *, void*);
 typedef struct {
   float *samples;
   int   numsamples;
+  char  filename[256];
 } sample;
 
 sample wav[5];
@@ -166,7 +180,7 @@ static int tonept;
 #define FACT1 0.11780972450961724644234912687298  //  9 * (2 Pi) / 480,   900 Hz tone
 #define FACT2 0.22252947962927702105777057298230  // 17 * (2 Pi) / 480,  1700 Hz tone
 
-int getwav(char *, sample *);
+int getwav(sample *);
 
 char workdir[PATH_MAX];
 
@@ -209,7 +223,7 @@ void get_token(FILE *fp, char *token, int ltoken, char *label, int llabel)
 
 int main(int argc, char **argv) {
 
-  int i;
+  int i,j;
   char str[20];
 
   char *cp;
@@ -230,13 +244,13 @@ int main(int argc, char **argv) {
       }
   }
   
-  // load values
-  sprintf(filename,"%s/Settings",workdir);
-  printf("Taking settings from %s\n",filename);
+  //
+  // load CW labels/texts from workspace
+  //
+  sprintf(filename,"%s/CWTXT",workdir);
   fp=fopen(filename,"r");
   if (fp) {
-    get_token(fp, maincall, 20, NULL, 0);
-    get_token(fp, altcall , 20, NULL, 0);
+    fprintf(stderr,"Importing CW texts/labels\n");
     get_token(fp, cwtxt1  , 80, cwlab1, 10);
     get_token(fp, cwtxt2  , 80, cwlab2, 10);
     get_token(fp, cwtxt3  , 80, cwlab3, 10);
@@ -244,16 +258,34 @@ int main(int argc, char **argv) {
     get_token(fp, cwtxt5  , 80, cwlab5, 10);
     fclose(fp);
   }
-  // load values from local prefs file
+  //
+  // load default values from local prefs file
+  //
   sprintf(filename,"%s/Prefs",workdir);
   fp=fopen(filename,"r");
   if (fp) {
+    fprintf(stderr,"Importing default values\n");
+    get_token(fp, mycall, 20, NULL, 0);
     get_token(fp, defrig, 150, NULL, 0);
     get_token(fp, defptt, 150, NULL, 0);
     get_token(fp, defwky, 150, NULL, 0);
     fscanf(fp,"%d\n",&defbaud);
     get_token(fp, defham, 150, NULL, 0);
     get_token(fp, defsnd, 150, NULL, 0);
+    fclose(fp);
+  }
+  //
+  // load filename for voice keyer from local file
+  //
+  sprintf(filename,"%s/VOICES",workdir);
+  fp=fopen(filename,"r");
+  if (fp) {
+    fprintf(stderr,"Importing voices\n");
+    get_token(fp, wav[0].filename, 256, voicelab1,10);
+    get_token(fp, wav[1].filename, 256, voicelab2,10);
+    get_token(fp, wav[2].filename, 256, voicelab3,10);
+    get_token(fp, wav[3].filename, 256, voicelab4,10);
+    get_token(fp, wav[4].filename, 256, voicelab5,10);
     fclose(fp);
   }
  
@@ -317,22 +349,18 @@ int main(int argc, char **argv) {
   lab3->labelfont(FL_BOLD);
   lab3->labelsize(14);
 
-  Fl_Button *cw1 = new Fl_Button(280,130,  80, 20, cwlab1); cw1->type(FL_TOGGLE_BUTTON); cw1->color(7,2); cw1->callback(do_cwtxt, (void *) cwtxt1);
-  Fl_Button *cw2 = new Fl_Button(280,160,  80, 20, cwlab2); cw2->type(FL_TOGGLE_BUTTON); cw2->color(7,2); cw2->callback(do_cwtxt, (void *) cwtxt2);
-  Fl_Button *cw3 = new Fl_Button(280,190,  80, 20, cwlab3); cw3->type(FL_TOGGLE_BUTTON); cw3->color(7,2); cw3->callback(do_cwtxt, (void *) cwtxt3);
-  Fl_Button *cw4 = new Fl_Button(280,220,  80, 20, cwlab4); cw4->type(FL_TOGGLE_BUTTON); cw4->color(7,2); cw4->callback(do_cwtxt, (void *) cwtxt4);
-  Fl_Button *cw5 = new Fl_Button(280,250,  80, 20, cwlab5); cw5->type(FL_TOGGLE_BUTTON); cw5->color(7,2); cw5->callback(do_cwtxt, (void *) cwtxt5);
+  cw1 = new Fl_Button(280,130,  80, 20, cwlab1); cw1->type(FL_TOGGLE_BUTTON); cw1->color(7,2); cw1->callback(do_cwtxt, (void *) cwtxt1);
+  cw2 = new Fl_Button(280,160,  80, 20, cwlab2); cw2->type(FL_TOGGLE_BUTTON); cw2->color(7,2); cw2->callback(do_cwtxt, (void *) cwtxt2);
+  cw3 = new Fl_Button(280,190,  80, 20, cwlab3); cw3->type(FL_TOGGLE_BUTTON); cw3->color(7,2); cw3->callback(do_cwtxt, (void *) cwtxt3);
+  cw4 = new Fl_Button(280,220,  80, 20, cwlab4); cw4->type(FL_TOGGLE_BUTTON); cw4->color(7,2); cw4->callback(do_cwtxt, (void *) cwtxt4);
+  cw5 = new Fl_Button(280,250,  80, 20, cwlab5); cw5->type(FL_TOGGLE_BUTTON); cw5->color(7,2); cw5->callback(do_cwtxt, (void *) cwtxt5);
 
-  Fl_Box *lab4  = new Fl_Box(340,370,80,20,"Active Callsign");
+  Fl_Box *lab4  = new Fl_Box(310,370,70,20,"MyCall");
   lab4->box(FL_FLAT_BOX);
   lab4->labelfont(FL_BOLD);
   lab4->labelsize(14);
 
-  Fl_Group *g3 = new Fl_Group(310,370,80,100);
-  Fl_Button *call1 = new Fl_Button(320, 400, 120, 20, maincall); call1->type(FL_RADIO_BUTTON);  call1->color(7,2); call1->callback(do_call, (void *) maincall); call1->setonly();
-  Fl_Button *call2 = new Fl_Button(320, 430, 120, 20, altcall ); call2->type(FL_RADIO_BUTTON);  call2->color(7,2); call2->callback(do_call, (void *) altcall);
-  do_call(NULL, (void *) maincall);
-  g3->end();
+  Fl_Input *call1 = new Fl_Input(380, 370, 120, 20, ""); call1->color(7,2); call1->callback(do_text, mycall); call1->value(mycall);
 
   Fl_Box *lab5  = new Fl_Box(180,100,80,20,"Mode");
   lab5->box(FL_FLAT_BOX);
@@ -352,12 +380,11 @@ int main(int argc, char **argv) {
   lab6->labelfont(FL_BOLD);
   lab6->labelsize(14);
 
-  Fl_Button *voice1 = new Fl_Button(80,130,  80, 20, "Smpl 1"); voice1->type(FL_TOGGLE_BUTTON); voice1->color(7,2); voice1->callback(do_voice, (void *) &wav[0]);
-  Fl_Button *voice2 = new Fl_Button(80,160,  80, 20, "Smpl 2"); voice2->type(FL_TOGGLE_BUTTON); voice2->color(7,2); voice2->callback(do_voice, (void *) &wav[1]);
-  Fl_Button *voice3 = new Fl_Button(80,190,  80, 20, "Smpl 3"); voice3->type(FL_TOGGLE_BUTTON); voice3->color(7,2); voice3->callback(do_voice, (void *) &wav[2]);
-  Fl_Button *voice4 = new Fl_Button(80,220,  80, 20, "Smpl 4"); voice4->type(FL_TOGGLE_BUTTON); voice4->color(7,2); voice4->callback(do_voice, (void *) &wav[3]);
-  Fl_Button *voice5 = new Fl_Button(80,250,  80, 20, "Smpl 5"); voice5->type(FL_TOGGLE_BUTTON); voice5->color(7,2); voice5->callback(do_voice, (void *) &wav[4]);
-
+  voice1 = new Fl_Button(80,130,  80, 20, voicelab1); voice1->type(FL_TOGGLE_BUTTON); voice1->color(7,2); voice1->callback(do_voice, (void *) &wav[0]);
+  voice2 = new Fl_Button(80,160,  80, 20, voicelab2); voice2->type(FL_TOGGLE_BUTTON); voice2->color(7,2); voice2->callback(do_voice, (void *) &wav[1]);
+  voice3 = new Fl_Button(80,190,  80, 20, voicelab3); voice3->type(FL_TOGGLE_BUTTON); voice3->color(7,2); voice3->callback(do_voice, (void *) &wav[2]);
+  voice4 = new Fl_Button(80,220,  80, 20, voicelab4); voice4->type(FL_TOGGLE_BUTTON); voice4->color(7,2); voice4->callback(do_voice, (void *) &wav[3]);
+  voice5 = new Fl_Button(80,250,  80, 20, voicelab5); voice5->type(FL_TOGGLE_BUTTON); voice5->color(7,2); voice5->callback(do_voice, (void *) &wav[4]);
 
   Fl_Box *lab7 = new Fl_Box(10,100, 60, 20, "Tune");
   lab7->box(FL_FLAT_BOX);
@@ -372,7 +399,7 @@ int main(int argc, char **argv) {
 
   Fl_Button *OpenRig   = new Fl_Button(10,280,290,20,"Open Rig");  OpenRig->type(FL_TOGGLE_BUTTON); OpenRig->color(7,2); OpenRig->callback(open_rig);
   Fl_Choice *RigModel  = new Fl_Choice(90,310,200,20,"Rig model"); RigModel->callback(choose_model);
-  Fl_Choice *SerialRig = new Fl_Choice(90,340,200,20,"Rig port");  SerialRig->callback(choose_serial);
+             SerialRig = new Fl_Input_Choice(90,340,200,20,"Rig port");  SerialRig->callback(choose_serial);
   Fl_Choice *SerialPTT = new Fl_Choice(90,370,200,20,"PTT port");  SerialPTT->callback(choose_ptt);
   Fl_Choice *BaudRate  = new Fl_Choice(90,400,200,20,"Baud 8N1");  BaudRate->callback(choose_baud);
   Fl_Choice *WinKey    = new Fl_Choice(90,430,200,20,"WinKey Dev");  WinKey->callback(choose_wkey);
@@ -385,6 +412,7 @@ int main(int argc, char **argv) {
   Volume->callback(do_volume, NULL);
   Volume->value(0.5);
 
+#ifdef __APPLE__
   Fl_Box *lab8  = new Fl_Box(340,310,80,20,"Rig Frequency");
   lab8->box(FL_FLAT_BOX);
   lab8->labelfont(FL_BOLD);
@@ -394,7 +422,6 @@ int main(int argc, char **argv) {
   lab9->labelfont(FL_BOLD);
   lab9->labelsize(14);
 
-#ifdef __APPLE__
   freq = new Fl_Output(320,330, 120, 30, ""); freq->textsize(24); freq->textcolor(4); freq->textfont(FL_COURIER+FL_BOLD);
   mode = new Fl_Input (445,330,  60, 30, ""); mode->textsize(20); mode->textcolor(4); mode->textfont(FL_COURIER+FL_BOLD);
   mode->callback(do_modeinp, NULL);
@@ -404,17 +431,20 @@ int main(int argc, char **argv) {
   mldx->value(mldx_flag);
 #endif
 
+  Fl_Button *setcw = new Fl_Button(320, 400, 120, 20, "Set CW texts"); setcw->callback(do_setcw, NULL);
+  Fl_Button *setvoice = new Fl_Button(320, 430, 120, 20, "Set voice files"); setvoice->callback(do_setvoice, NULL);
+
   { // fill in choices for serial ports
     struct stat st;
     char globname[100];
 
-    numrigdev=3; rigdev[0]="uh-rig"; rigdev[1]=":19090"; rigdev[2]="192.168.1.50:19090";
-    numpttdev=3; pttdev[0]="CAT-Data"; pttdev[1]="CAT-Mic"; pttdev[2]="uh-ptt";
-    numwkeydev=2; wkeydev[0]="CAT"; wkeydev[1]="uh-wkey";
+    numrigdev=1;  rigdev[0]=":19090";
+    numpttdev=2;  pttdev[0]="CAT-Data"; pttdev[1]="CAT-Mic";
+    numwkydev=1;  wkydev[0]="CAT";
 
     SerialRig->clear(); for (i=0; i<numrigdev;  i++) SerialRig->add(rigdev[i]);
     SerialPTT->clear(); for (i=0; i<numpttdev;  i++) SerialPTT->add(pttdev[i]);
-    WinKey->clear();    for (i=0; i<numwkeydev; i++) WinKey->add(wkeydev[i]);
+    WinKey->clear();    for (i=0; i<numwkydev; i++) WinKey->add(wkydev[i]);
 
     strcpy(globname,SER_PORT_BASIS);
     strcat(globname,"*");
@@ -429,7 +459,7 @@ int main(int argc, char **argv) {
             strcpy(s, gbuf.gl_pathv[j]);
             rigdev[numrigdev++] = (const char *) s;
             pttdev[numpttdev++] = (const char *) s;
-            wkeydev[numwkeydev++] = (const char *) s;
+            wkydev[numwkydev++] = (const char *) s;
             SerialRig->add(s+baslen);
             SerialPTT->add(s+baslen);
             WinKey->add(s+baslen);
@@ -440,9 +470,69 @@ int main(int argc, char **argv) {
     }
     globfree(&gbuf);
 
-    for (i=0; i<numbaud; i++) {
-      sprintf(str,"%d",baudrates[i]);
-      BaudRate->add(str);
+  }
+  //
+  // For the rig, ptt, and wkey devices, add the defaults
+  // if they are not yet present
+  //
+  j=1;
+  for (i=0; i<numrigdev; i++) {
+    if (!strcmp(defrig, rigdev[i])) j=0;
+  }
+  if (j) {
+    rigdev[numrigdev++]=defrig;
+    SerialRig->add(defrig);
+  }
+  j=1;
+  for (i=0; i<numpttdev; i++) {
+    if (!strcmp(defptt, pttdev[i])) j=0;
+  }
+  if (j) {
+    pttdev[numpttdev++]=defptt;
+    SerialPTT->add(defptt);
+  }
+  j=1;
+  for (i=0; i<numwkydev; i++) {
+    if (!strcmp(defwky, wkydev[i])) j=0;
+  }
+  if (j) {
+    wkydev[numwkydev++]=defwky;
+    WinKey->add(defwky);
+ }
+
+  for (i=0; i<numbaud; i++) {
+    sprintf(str,"%d",baudrates[i]);
+    BaudRate->add(str);
+  }
+  BaudRate->value(0);  mybaud=0;
+  for (i=0; i<numbaud; i++) {
+    if (baudrates[i] == defbaud) {
+      mybaud=i;
+      BaudRate->value(i);
+    }
+  }
+
+  SerialRig->value(0); myrigdev=SerialRig->value();
+  for (i=0; i<numrigdev; i++) {
+    if (!strcmp(defrig, rigdev[i])) {
+      myrigdev=defrig;
+      SerialRig->value(i);
+    }
+  }
+
+  SerialPTT->value(0); mypttdev=0;
+  for (i=0; i<numpttdev; i++) {
+    if (!strcmp(defptt, pttdev[i])) {
+      mypttdev=i;
+      SerialPTT->value(i);
+    }
+  }
+
+  WinKey->value(0);    mywkydev=0;
+  for (i=0; i<numwkydev; i++) {
+    if (!strcmp(defwky, wkydev[i])) {
+      mywkydev=i;
+      WinKey->value(i);
     }
   }
 
@@ -454,6 +544,13 @@ int main(int argc, char **argv) {
     n=get_numrigs();
     for (i=0; i<n; i++) {
       RigModel->add(get_rigname(i));
+    }
+  }
+  RigModel->value(0);  mymodel=0;
+  for (i=0; i<get_numrigs(); i++) {
+    if (!strcmp(defham, get_rigname(i))) {
+      mymodel=i;
+      RigModel->value(i);
     }
   }
 
@@ -499,62 +596,7 @@ int main(int argc, char **argv) {
 	SoundCard->add(sounddevname[0]);
 	numsounddev=1;
   }
-
-#define get16(x) get(wavfile, &x, 2)
-#define get32(x) get(wavfile, &x, 4)
-#define gets4(x) get(wavfile, x, 4)
-
-  { // load wav files
-      char filename[PATH_MAX];
-      int i;
-
-      for (i=0; i<=4; i++) {
-          wav[i].numsamples=0;
-          wav[i].samples=NULL;
-
-          sprintf(filename,"%s/voice%1d.wav",workdir,i+1);
-          getwav(filename, &wav[i]);
-
-      }
-  }
-  
   SoundCard->value(0); mysounddev=0; sounddevice=sounddev[0];
-  RigModel->value(0);  mymodel=0;
-  BaudRate->value(0);  mybaud=0;
-  SerialRig->value(0); myrigdev=0;
-  SerialPTT->value(0); mypttdev=0;
-  WinKey->value(0);    mywkeydev=0;
-
-  for (i=0; i<numbaud; i++) {
-    if (baudrates[i] == defbaud) {
-      mybaud=i;
-      BaudRate->value(i);
-    }
-  }
-  for (i=0; i<numrigdev; i++) {
-    if (!strcmp(defrig, rigdev[i])) {
-      myrigdev=i;
-      SerialRig->value(i);
-    }
-  }
-  for (i=0; i<numpttdev; i++) {
-    if (!strcmp(defptt, pttdev[i])) {
-      mypttdev=i;
-      SerialPTT->value(i);
-    }
-  }
-  for (i=0; i<numwkeydev; i++) {
-    if (!strcmp(defwky, wkeydev[i])) {
-      mywkeydev=i;
-      WinKey->value(i);
-    }
-  }
-  for (i=0; i<get_numrigs(); i++) {
-    if (!strcmp(defham, get_rigname(i))) {
-      mymodel=i;
-      RigModel->value(i);
-    }
-  }
   for (i=0; i<numsounddev; i++) {
     if (!strcmp(defsnd, sounddevname[i])) {
       mysounddev=i;
@@ -563,7 +605,14 @@ int main(int argc, char **argv) {
     }
   }
 
-
+  //
+  // load wav files
+  //
+  for (i=0; i< 5; i++) {
+    wav[i].samples=NULL;
+    getwav(&wav[i]);
+  }
+  
   window->end();
   window->show(argc, argv);
 
@@ -580,12 +629,12 @@ void choose_model(Fl_Widget *w, void*)
 
 void choose_wkey(Fl_Widget *w, void*)
 {
-mywkeydev=((Fl_Choice *) w)->value();
+mywkydev=((Fl_Choice *) w)->value();
 }
 
 void choose_serial(Fl_Widget *w, void*)
 {
-myrigdev= ((Fl_Choice *) w)->value();
+  myrigdev= ((Fl_Input_Choice *) w)->value();
 }
 
 void choose_ptt(Fl_Widget *w, void*)
@@ -617,7 +666,7 @@ for (i=0; i<len; i++) p[i]=getc(file);
 #define get16(x) get(wavfile, &x, 2)
 #define get32(x) get(wavfile, &x, 4)
 #define gets4(x) get(wavfile, x, 4)
-int getwav(char *filename, sample *wav)
+int getwav(sample *s)
 {
     FILE *wavfile;
     char label[4];
@@ -634,7 +683,11 @@ int getwav(char *filename, sample *wav)
     short int pcm;
     double max;
 
-    wavfile=fopen(filename,"r");
+    s->numsamples=0;
+    if (s->samples != NULL) free(s->samples); 
+    s->samples=NULL;
+
+    wavfile=fopen(s->filename,"r");
     if (wavfile == NULL) return -1;
     gets4(label);
     if (strncmp(label,"RIFF",4)) {
@@ -672,28 +725,28 @@ int getwav(char *filename, sample *wav)
         switch (num_channels) {
           case 1:
             if (chunksize & 1) goto err;
-            wav->numsamples=chunksize / 2;
-            wav->samples = (float *) malloc(wav->numsamples*sizeof(float));
+            s->numsamples=chunksize / 2;
+            s->samples = (float *) malloc(s->numsamples*sizeof(float));
             max=0.0;
-            for (i=0; i<wav->numsamples; i++) {
+            for (i=0; i<s->numsamples; i++) {
               get16(pcm);
-              wav->samples[i]=pcm/32768.0;
-              if (fabs(wav->samples[i]) > max) max=fabs(wav->samples[i]);
+              s->samples[i]=pcm/32768.0;
+              if (fabs(s->samples[i]) > max) max=fabs(s->samples[i]);
             }
             break;
           case 2:
             if (chunksize & 3) goto err;
-            wav->numsamples=chunksize / 4;
-            wav->samples = (float *) malloc(wav->numsamples*sizeof(float));
+            s->numsamples=chunksize / 4;
+            s->samples = (float *) malloc(s->numsamples*sizeof(float));
             max=0.0;
-            for (i=0; i<wav->numsamples; i++) {
+            for (i=0; i<s->numsamples; i++) {
               get16(bits); // skip left channel
               get16(bits);
-              wav->samples[i]=bits/32768.0;
-              if (fabs(wav->samples[i]) > max) max=fabs(wav->samples[i]);
+              s->samples[i]=bits/32768.0;
+              if (fabs(s->samples[i]) > max) max=fabs(s->samples[i]);
             }
             // normalize
-            if (max > 0.1) for (i=0; i<wav->numsamples; i++) wav->samples[i]=wav->samples[i]/max;
+            if (max > 0.1) for (i=0; i<s->numsamples; i++) s->samples[i]=s->samples[i]/max;
             break;
           default:
             goto err;
@@ -899,9 +952,20 @@ int OneTone(const void *inputBuffer, void *outputBuffer, unsigned long framesPer
     return paContinue;
 }
 
-void do_call(Fl_Widget *, void * data)
+void do_text(Fl_Widget *w, void * data)
 {
-    mycall = (const char *) data;
+  char *target = (char *) data;
+  const char *newcall=((Fl_Input *) w)->value();
+  strcpy(target, newcall);
+  //
+  // convert lower-case letters to upper-case letters
+  //
+  char *p = target;
+  while (*p) {
+    *p = toupper(*p);
+    p++;
+  }
+  ((Fl_Input *) w)->value(target);
 }
 
 void do_pow(Fl_Widget *, void* data)
@@ -930,6 +994,7 @@ void open_rig(Fl_Widget *w, void *)
     FILE *prefs;
     int i;
     int val;
+    char *s;
 
     // clear the CW input and output fields
     cwinp->value("");
@@ -941,19 +1006,35 @@ void open_rig(Fl_Widget *w, void *)
        // print current values to prefs file
        sprintf(filename,"%s/Prefs",workdir);
        prefs=fopen(filename,"w");
-       if (prefs == NULL) {
-         prefs=fopen("Prefs","w");
-       }
        if (prefs) {
-	  fprintf(prefs,"%s\n",rigdev[myrigdev]);
+	  fprintf(prefs,"%s\n",mycall);
+	  fprintf(prefs,"%s\n",myrigdev);
 	  fprintf(prefs,"%s\n",pttdev[mypttdev]);
-	  fprintf(prefs,"%s\n",wkeydev[mywkeydev]);
+	  fprintf(prefs,"%s\n",wkydev[mywkydev]);
 	  fprintf(prefs,"%d\n",baudrates[mybaud]);
 	  fprintf(prefs,"%s\n",get_rigname(mymodel));
 	  fprintf(prefs,"%s\n",sounddevname[mysounddev]);
+	  fprintf(stderr,"%s\n",mycall);
+	  fprintf(stderr,"%s\n",myrigdev);
+	  fprintf(stderr,"%s\n",pttdev[mypttdev]);
+	  fprintf(stderr,"%s\n",wkydev[mywkydev]);
+	  fprintf(stderr,"%d\n",baudrates[mybaud]);
+	  fprintf(stderr,"%s\n",get_rigname(mymodel));
+	  fprintf(stderr,"%s\n",sounddevname[mysounddev]);
 	  fclose(prefs);
        }
-       val=open_hamlib(rigdev[myrigdev],pttdev[mypttdev],wkeydev[mywkeydev],baudrates[mybaud],mymodel);
+       // Add serial rig, if not yet present
+       val=1;
+       for (i=0; i<numrigdev; i++) {
+         if (!strcmp(myrigdev,rigdev[i])) val=0;
+       }
+       if (val) {
+         SerialRig->add(myrigdev);
+         s= (char *) malloc(strlen(myrigdev)+1);
+         strcpy(s,myrigdev);
+         rigdev[numrigdev]=(const char *) s;
+       }
+       val=open_hamlib(myrigdev,pttdev[mypttdev],wkydev[mywkydev],baudrates[mybaud],mymodel);
        ((Fl_Button *)w)->value(val);
 	if (val > 0) {
 	    // ask rig for current values. Adjust accordingly
@@ -1155,6 +1236,123 @@ void do_mldx(Fl_Widget *w, void *)
     mldx_last_freq=-1.0;
 }
 #endif
+
+void apply_cw(Fl_Widget *w, void *) {
+  char filename[PATH_MAX];
+  FILE *fp;
+  //
+  // update labels of buttons
+  //
+  cw1->label(cwlab1);
+  cw2->label(cwlab2);
+  cw3->label(cwlab3);
+  cw4->label(cwlab4);
+  cw5->label(cwlab5);
+
+  //
+  // make new settings file
+  //
+  sprintf(filename,"%s/CWTXT",workdir);
+  fp=fopen(filename,"w");
+  if (fp) {
+    fprintf(fp,"%s:%s\n",cwlab1,cwtxt1);
+    fprintf(fp,"%s:%s\n",cwlab2,cwtxt2);
+    fprintf(fp,"%s:%s\n",cwlab3,cwtxt3);
+    fprintf(fp,"%s:%s\n",cwlab4,cwtxt4);
+    fprintf(fp,"%s:%s\n",cwlab5,cwtxt5);
+    fclose(fp);
+  }
+
+  //
+  // close the "CW text" window
+  //
+  Fl::delete_widget(set_cw_win);
+}
+
+void apply_voice(Fl_Widget *w, void *) {
+  int i;
+  char filename[256];
+  FILE *fp;
+  //
+  // Re-label all buttons
+  //
+  voice1->label(voicelab1);
+  voice2->label(voicelab2);
+  voice3->label(voicelab3);
+  voice4->label(voicelab4);
+  voice5->label(voicelab5);
+  //
+  // re-load all wav files
+  //
+  for (i=0; i<5; i++) {
+    getwav(&wav[i]);
+  }
+  //
+  // dump labels and file names to file
+  //
+  sprintf(filename,"%s/VOICES",workdir);
+  fp=fopen(filename,"w");
+  if (fp) {
+    fprintf(fp,"%s:%s\n",voicelab1,wav[0].filename);
+    fprintf(fp,"%s:%s\n",voicelab2,wav[1].filename);
+    fprintf(fp,"%s:%s\n",voicelab3,wav[2].filename);
+    fprintf(fp,"%s:%s\n",voicelab4,wav[3].filename);
+    fprintf(fp,"%s:%s\n",voicelab5,wav[4].filename);
+    fclose(fp);
+  }
+  //
+  // CLose (destroy) window
+  //
+  Fl::delete_widget(set_voice_win);
+}
+
+void get_file(Fl_Widget *w, void *data) {
+  sample *s = (sample *) data;
+  char *fn = fl_file_chooser("WAV file to import", "*.wav", "", 0);
+  strcpy(s->filename, fn);
+}
+
+void do_setvoice(Fl_Widget *w, void *) {
+    set_voice_win = new Fl_Window(10,10,500,200);
+
+    Fl_Input *l1 = new Fl_Input(60,  20, 80, 20, "Label 1"); l1->callback(do_text,voicelab1); l1->value(voicelab1);
+    Fl_Input *l2 = new Fl_Input(60,  50, 80, 20, "Label 2"); l2->callback(do_text,voicelab2); l2->value(voicelab2);
+    Fl_Input *l3 = new Fl_Input(60,  80, 80, 20, "Label 3"); l3->callback(do_text,voicelab3); l3->value(voicelab3);
+    Fl_Input *l4 = new Fl_Input(60, 110, 80, 20, "Label 4"); l4->callback(do_text,voicelab4); l4->value(voicelab4);
+    Fl_Input *l5 = new Fl_Input(60, 140, 80, 20, "Label 5"); l5->callback(do_text,voicelab5); l5->value(voicelab5);
+
+    Fl_Button *b1 = new Fl_Button(180,  20, 250, 30, "Choose WAV file for Sample 1"); b1->callback(get_file, &wav[0]);
+    Fl_Button *b2 = new Fl_Button(180,  50, 250, 30, "Choose WAV file for Sample 2"); b2->callback(get_file, &wav[1]);
+    Fl_Button *b3 = new Fl_Button(180,  80, 250, 30, "Choose WAV file for Sample 3"); b3->callback(get_file, &wav[2]);
+    Fl_Button *b4 = new Fl_Button(180, 110, 250, 30, "Choose WAV file for Sample 4"); b4->callback(get_file, &wav[3]);
+    Fl_Button *b5 = new Fl_Button(180, 140, 250, 30, "Choose WAV file for Sample 5"); b5->callback(get_file, &wav[4]);
+
+    Fl_Button *apply = new Fl_Button(20, 170, 100, 20, "Apply."); apply->callback(apply_voice, NULL);
+
+    set_voice_win->label("Choose files for voice samples");
+    set_voice_win->show();
+}
+
+void do_setcw(Fl_Widget *w, void *)
+{
+    set_cw_win = new Fl_Window(10,10,800,250);
+    Fl_Input *l1 = new Fl_Input(60,  20, 60, 20, "Label 1"); l1->callback(do_text,cwlab1); l1->value(cwlab1);
+    Fl_Input *l2 = new Fl_Input(60,  50, 60, 20, "Label 2"); l2->callback(do_text,cwlab2); l2->value(cwlab2);
+    Fl_Input *l3 = new Fl_Input(60,  80, 60, 20, "Label 3"); l3->callback(do_text,cwlab3); l3->value(cwlab3);
+    Fl_Input *l4 = new Fl_Input(60, 110, 60, 20, "Label 4"); l4->callback(do_text,cwlab4); l4->value(cwlab4);
+    Fl_Input *l5 = new Fl_Input(60, 140, 60, 20, "Label 5"); l5->callback(do_text,cwlab5); l5->value(cwlab5);
+
+    Fl_Input *t1 = new Fl_Input(180,  20, 600, 20, "Text 1"); t1->callback(do_text,cwtxt1); t1->value(cwtxt1);
+    Fl_Input *t2 = new Fl_Input(180,  50, 600, 20, "Text 2"); t2->callback(do_text,cwtxt2); t2->value(cwtxt2);
+    Fl_Input *t3 = new Fl_Input(180,  80, 600, 20, "Text 3"); t3->callback(do_text,cwtxt3); t3->value(cwtxt3);
+    Fl_Input *t4 = new Fl_Input(180, 110, 600, 20, "Text 4"); t4->callback(do_text,cwtxt4); t4->value(cwtxt4);
+    Fl_Input *t5 = new Fl_Input(180, 140, 600, 20, "Text 5"); t5->callback(do_text,cwtxt5); t5->value(cwtxt5);
+
+    Fl_Button *apply = new Fl_Button(20, 180, 100, 20, "Apply."); apply->callback(apply_cw, NULL);
+
+    set_cw_win->label("Enter labels and texts for CW buttons");
+    set_cw_win->show();
+}
 
 void update_freq(void *)
 {

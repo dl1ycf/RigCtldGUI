@@ -25,6 +25,8 @@
 #
 # The program is then linked against the hamlib library files in ../hamlib/src/.libs
 #
+# NOTE: on many systems shared libraries are used, therefore you also have to install hamlib (V. 4)
+#
 ########################################################################################################
 
 #

@@ -149,6 +149,7 @@ static double mldx_last_freq = -1.0;
 #endif
 void do_setcw(Fl_Widget *, void *);
 void do_setvoice(Fl_Widget *, void *);
+void do_saveprefs(Fl_Widget *, void *);
 
 static double master_volume = 0.0316;   // -30 dB
 void do_volume(Fl_Widget *, void *);
@@ -287,10 +288,16 @@ int main(int argc, char **argv) {
     get_token(fp, wav[3].filename, 256, voicelab4,10);
     get_token(fp, wav[4].filename, 256, voicelab5,10);
     fclose(fp);
+  } else {
+    strcpy(wav[0].filename,"NothingSelected");
+    strcpy(wav[1].filename,"NothingSelected");
+    strcpy(wav[2].filename,"NothingSelected");
+    strcpy(wav[3].filename,"NothingSelected");
+    strcpy(wav[4].filename,"NothingSelected");
   }
  
 
-  Fl_Window *window = new Fl_Window(512,500);
+  Fl_Window *window = new Fl_Window(512,512);
   window->label("Rig Controller");
 
   Fl_Box *cwinplab = new Fl_Box(10,70, 30, 20, "Inp");
@@ -412,7 +419,6 @@ int main(int argc, char **argv) {
   Volume->callback(do_volume, NULL);
   Volume->value(0.5);
 
-#ifdef __APPLE__
   Fl_Box *lab8  = new Fl_Box(340,310,80,20,"Rig Frequency");
   lab8->box(FL_FLAT_BOX);
   lab8->labelfont(FL_BOLD);
@@ -427,12 +433,14 @@ int main(int argc, char **argv) {
   mode->callback(do_modeinp, NULL);
   mode->when(FL_WHEN_ENTER_KEY_ALWAYS);
 
+#ifdef __APPLE__
   Fl_Button *mldx = new Fl_Button(320, 280, 180, 20, "Tell MacLoggerDX"); mldx->type(FL_TOGGLE_BUTTON); mldx->color(7,2); mldx->callback(do_mldx, NULL);
   mldx->value(mldx_flag);
 #endif
 
-  Fl_Button *setcw = new Fl_Button(320, 400, 120, 20, "Set CW texts"); setcw->callback(do_setcw, NULL);
+  Fl_Button *setcw    = new Fl_Button(320, 400, 120, 20, "Set CW texts");    setcw->callback(do_setcw, NULL);
   Fl_Button *setvoice = new Fl_Button(320, 430, 120, 20, "Set voice files"); setvoice->callback(do_setvoice, NULL);
+  Fl_Button *saveprefs= new Fl_Button(320, 460, 120, 20, "Save settings");   saveprefs->callback(do_saveprefs, NULL);
 
   { // fill in choices for serial ports
     struct stat st;
@@ -1003,26 +1011,6 @@ void open_rig(Fl_Widget *w, void *)
     
     val=((Fl_Button *)w)->value();
     if (val == 1) {
-       // print current values to prefs file
-       sprintf(filename,"%s/Prefs",workdir);
-       prefs=fopen(filename,"w");
-       if (prefs) {
-	  fprintf(prefs,"%s\n",mycall);
-	  fprintf(prefs,"%s\n",myrigdev);
-	  fprintf(prefs,"%s\n",pttdev[mypttdev]);
-	  fprintf(prefs,"%s\n",wkydev[mywkydev]);
-	  fprintf(prefs,"%d\n",baudrates[mybaud]);
-	  fprintf(prefs,"%s\n",get_rigname(mymodel));
-	  fprintf(prefs,"%s\n",sounddevname[mysounddev]);
-	  fprintf(stderr,"%s\n",mycall);
-	  fprintf(stderr,"%s\n",myrigdev);
-	  fprintf(stderr,"%s\n",pttdev[mypttdev]);
-	  fprintf(stderr,"%s\n",wkydev[mywkydev]);
-	  fprintf(stderr,"%d\n",baudrates[mybaud]);
-	  fprintf(stderr,"%s\n",get_rigname(mymodel));
-	  fprintf(stderr,"%s\n",sounddevname[mysounddev]);
-	  fclose(prefs);
-       }
        // Add serial rig, if not yet present
        val=1;
        for (i=0; i<numrigdev; i++) {
@@ -1058,14 +1046,19 @@ void open_rig(Fl_Widget *w, void *)
 	    } else {
 		speed1->label("12");
 	        speed1->value(0);
-	        speed3->value(0);
+	        speed3->value(1);
 	        set_cwspeed(20);
 	    }
 	    speed2->value(0);
 	    speed4->value(0);
 	    speed5->value(0);
 
-	    // Mode is tracked in update_freq
+            //
+            // Upon each sucessful connection to a rig,
+	    // the parameters are save
+            //
+            do_saveprefs(NULL, NULL);
+
 	}
     } else {
 	close_hamlib();
@@ -1250,20 +1243,6 @@ void apply_cw(Fl_Widget *w, void *) {
   cw5->label(cwlab5);
 
   //
-  // make new settings file
-  //
-  sprintf(filename,"%s/CWTXT",workdir);
-  fp=fopen(filename,"w");
-  if (fp) {
-    fprintf(fp,"%s:%s\n",cwlab1,cwtxt1);
-    fprintf(fp,"%s:%s\n",cwlab2,cwtxt2);
-    fprintf(fp,"%s:%s\n",cwlab3,cwtxt3);
-    fprintf(fp,"%s:%s\n",cwlab4,cwtxt4);
-    fprintf(fp,"%s:%s\n",cwlab5,cwtxt5);
-    fclose(fp);
-  }
-
-  //
   // close the "CW text" window
   //
   Fl::delete_widget(set_cw_win);
@@ -1288,8 +1267,53 @@ void apply_voice(Fl_Widget *w, void *) {
     getwav(&wav[i]);
   }
   //
-  // dump labels and file names to file
+  // CLose (destroy) window
   //
+  Fl::delete_widget(set_voice_win);
+}
+
+void get_file(Fl_Widget *w, void *data) {
+  sample *s = (sample *) data;
+  char *fn = fl_file_chooser("WAV file to import", "*.wav", "", 0);
+  if (fn) {
+    strcpy(s->filename, fn);
+  }
+}
+
+void do_saveprefs(Fl_Widget *w, void*) {
+  FILE *fp;
+  char filename[PATH_MAX];
+//
+// save current status to "Prefs" file
+//
+  sprintf(filename,"%s/Prefs",workdir);
+  fp=fopen(filename,"w");
+  if (fp) {
+     fprintf(fp,"%s\n",mycall);
+     fprintf(fp,"%s\n",myrigdev);
+     fprintf(fp,"%s\n",pttdev[mypttdev]);
+     fprintf(fp,"%s\n",wkydev[mywkydev]);
+     fprintf(fp,"%d\n",baudrates[mybaud]);
+     fprintf(fp,"%s\n",get_rigname(mymodel));
+     fprintf(fp,"%s\n",sounddevname[mysounddev]);
+     fclose(fp);
+  }
+//
+// Save current CW texts to CWTXT file
+//
+  sprintf(filename,"%s/CWTXT",workdir);
+  fp=fopen(filename,"w");
+  if (fp) {
+    fprintf(fp,"%s:%s\n",cwlab1,cwtxt1);
+    fprintf(fp,"%s:%s\n",cwlab2,cwtxt2);
+    fprintf(fp,"%s:%s\n",cwlab3,cwtxt3);
+    fprintf(fp,"%s:%s\n",cwlab4,cwtxt4);
+    fprintf(fp,"%s:%s\n",cwlab5,cwtxt5);
+    fclose(fp);
+  }
+//
+// Save current samples to VOICES file
+//
   sprintf(filename,"%s/VOICES",workdir);
   fp=fopen(filename,"w");
   if (fp) {
@@ -1300,16 +1324,10 @@ void apply_voice(Fl_Widget *w, void *) {
     fprintf(fp,"%s:%s\n",voicelab5,wav[4].filename);
     fclose(fp);
   }
-  //
-  // CLose (destroy) window
-  //
-  Fl::delete_widget(set_voice_win);
-}
-
-void get_file(Fl_Widget *w, void *data) {
-  sample *s = (sample *) data;
-  char *fn = fl_file_chooser("WAV file to import", "*.wav", "", 0);
-  strcpy(s->filename, fn);
+  // w == NULL means a call from rig_open
+  if (w != NULL) {
+    fl_alert("Preferences saved to %s directory",workdir);
+  }
 }
 
 void do_setvoice(Fl_Widget *w, void *) {

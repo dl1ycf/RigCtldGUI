@@ -390,6 +390,7 @@ int open_hamlib(const char* rigdev, const char* pttdev, const char *wkeydev, int
 
     // init Hamlib
     rig = rig_init(rigs[model].model); if (!rig) goto err_ret;
+    err = rig_set_conf(rig, rig_token_lookup(rig,"itu_region"), "1");
     err = rig_set_conf(rig, rig_token_lookup(rig,"data_bits"), "8");
     if (baud == 4800) {
       err = rig_set_conf(rig, rig_token_lookup(rig,"stop_bits"), "2");

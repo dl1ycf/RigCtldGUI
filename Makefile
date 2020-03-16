@@ -34,7 +34,7 @@ OBJS=		Rig.o Hamlib.o Winkey.o rigctl_parse.o dumpcaps.o sprintflst.o fmemopen.o
 LIBS=		-lfltk -lportaudio -L ../hamlib/src/.libs -lhamlib -lreadline -lpthread
 CXX=		g++
 CC=		gcc
-HAMINCLUDE=	-I../hamlib/include -I../hamlib/tests -I../hamlib/src
+HAMINCLUDE=	-I../hamlib/include -I../hamlib/tests -I../hamlib/src 
 CFLAGS=		-O $(HAMINCLUDE)
 CXXFLAGS=	-O $(HAMINCLUDE)
 

@@ -66,7 +66,6 @@ char cwtxt3[80]="test de # # test";
 char cwtxt4[80]="cfm ur 5nn";
 char cwtxt5[80]="tu 73";
 
-static Fl_Input_Choice *SerialRig;
 static Fl_Button *cw1, *cw2, *cw3, *cw4, *cw5;
 static Fl_Button *voice1, *voice2, *voice3, *voice4, *voice5;
 static Fl_Window *set_cw_win;
@@ -88,10 +87,9 @@ char defsnd[150]="";
 char defham[150]="Hamlib Dummy";
 int  defbaud=9600;
 
-const char *rigdev[150], *pttdev[150], *wkydev[150];
-int        numrigdev, numpttdev, numwkydev;
 const char *myrigdev;
-int        mypttdev, mywkydev;
+const char *mypttdev;
+const char *mywkydev;
 int        baudrates[]={1200,2400,4800, 9600, 19200,38400,115200};
 int        numbaud = sizeof(baudrates)/sizeof(int);
 int        mybaud=0;
@@ -220,6 +218,26 @@ void get_token(FILE *fp, char *token, int ltoken, char *label, int llabel)
     strncpy(label, cp, j-1);
     label[j-1]=0;
     strcpy(token, p+1);
+}
+
+void AddToChoice(Fl_Input_Choice *w, char *s) {
+  int size, i, found;
+  const char *item;
+  size=w->menu()->size() -1;
+  found=0;
+  for (i=0; i<size; i++) {
+    w->value(i);
+    item=w->value();
+    if (!strcmp(item, s)) {
+      found=1;
+      w->value(i);
+      break;
+    }
+  }
+  if (found == 0) {
+    w->add(s);
+    w->value(size);
+  } 
 }
 
 int main(int argc, char **argv) {
@@ -404,13 +422,13 @@ int main(int argc, char **argv) {
   tune4 = new Fl_Button(10, 220,  60, 20, "1700 Hz"); tune4->type(FL_TOGGLE_BUTTON); tune4->color(7,2); tune4->callback(do_tune, (void *) 4);
   tune5 = new Fl_Button(10, 250,  60, 20, "2 Tone");  tune5->type(FL_TOGGLE_BUTTON); tune5->color(7,2); tune5->callback(do_tune, (void *) 5);
 
-  Fl_Button *OpenRig   = new Fl_Button(10,280,290,20,"Open Rig");  OpenRig->type(FL_TOGGLE_BUTTON); OpenRig->color(7,2); OpenRig->callback(open_rig);
-  Fl_Choice *RigModel  = new Fl_Choice(90,310,200,20,"Rig model"); RigModel->callback(choose_model);
-             SerialRig = new Fl_Input_Choice(90,340,200,20,"Rig port");  SerialRig->callback(choose_serial);
-  Fl_Choice *SerialPTT = new Fl_Choice(90,370,200,20,"PTT port");  SerialPTT->callback(choose_ptt);
-  Fl_Choice *BaudRate  = new Fl_Choice(90,400,200,20,"Baud 8N1");  BaudRate->callback(choose_baud);
-  Fl_Choice *WinKey    = new Fl_Choice(90,430,200,20,"WinKey Dev");  WinKey->callback(choose_wkey);
-  Fl_Choice *SoundCard = new Fl_Choice(90,460,200,20,"SoundCard"); SoundCard->callback(choose_sound);
+  Fl_Button       *OpenRig   = new Fl_Button(10,280,290,20,"Open Rig");  OpenRig->type(FL_TOGGLE_BUTTON); OpenRig->color(7,2); OpenRig->callback(open_rig);
+  Fl_Choice       *RigModel  = new Fl_Choice(90,310,200,20,"Rig model"); RigModel->callback(choose_model);
+  Fl_Input_Choice *SerialRig = new Fl_Input_Choice(90,340,200,20,"Rig port");  SerialRig->callback(choose_serial);
+  Fl_Input_Choice *SerialPTT = new Fl_Input_Choice(90,370,200,20,"PTT port");  SerialPTT->callback(choose_ptt);
+  Fl_Choice       *BaudRate  = new Fl_Choice(90,400,200,20,"Baud 8N1");  BaudRate->callback(choose_baud);
+  Fl_Input_Choice *WinKey    = new Fl_Input_Choice(90,430,200,20,"WinKey Dev");  WinKey->callback(choose_wkey);
+  Fl_Choice       *SoundCard = new Fl_Choice(90,460,200,20,"SoundCard"); SoundCard->callback(choose_sound);
 
   Fl_Slider *Volume    = new Fl_Slider(90,480,200,20,"Volume");
   Volume->type(FL_HOR_NICE_SLIDER);
@@ -442,17 +460,22 @@ int main(int argc, char **argv) {
   Fl_Button *setvoice = new Fl_Button(320, 430, 120, 20, "Set voice files"); setvoice->callback(do_setvoice, NULL);
   Fl_Button *saveprefs= new Fl_Button(320, 460, 120, 20, "Save settings");   saveprefs->callback(do_saveprefs, NULL);
 
-  { // fill in choices for serial ports
+    // fill in choices for serial ports
     struct stat st;
     char globname[100];
 
-    numrigdev=1;  rigdev[0]=":19090";
-    numpttdev=2;  pttdev[0]="CAT-Data"; pttdev[1]="CAT-Mic";
-    numwkydev=1;  wkydev[0]="CAT";
+    SerialRig->clear();
+    SerialRig->add(":19090");
+    SerialRig->add("uh-rig");
 
-    SerialRig->clear(); for (i=0; i<numrigdev;  i++) SerialRig->add(rigdev[i]);
-    SerialPTT->clear(); for (i=0; i<numpttdev;  i++) SerialPTT->add(pttdev[i]);
-    WinKey->clear();    for (i=0; i<numwkydev; i++) WinKey->add(wkydev[i]);
+    SerialPTT->clear();
+    SerialPTT->add("CAT-Data");
+    SerialPTT->add("CAT-Mic");
+    SerialPTT->add("uh-ptt");
+
+    WinKey->clear();
+    WinKey->add("CAT");
+    WinKey->add("uh-wkey");
 
     strcpy(globname,SER_PORT_BASIS);
     strcat(globname,"*");
@@ -465,12 +488,9 @@ int main(int argc, char **argv) {
          if ( (ret1 && ret2 ) || strstr(gbuf.gl_pathv[j], "modem") ) {
             char *s = (char *) malloc(strlen(gbuf.gl_pathv[j])+1);
             strcpy(s, gbuf.gl_pathv[j]);
-            rigdev[numrigdev++] = (const char *) s;
-            pttdev[numpttdev++] = (const char *) s;
-            wkydev[numwkydev++] = (const char *) s;
-            SerialRig->add(s+baslen);
-            SerialPTT->add(s+baslen);
-            WinKey->add(s+baslen);
+            SerialRig->add(s);
+            SerialPTT->add(s);
+            WinKey->add(s);
             printf("Found device: %s\n", gbuf.gl_pathv[j]);
          }  else {
             printf("Not accepted: %s\n", gbuf.gl_pathv[j]);
@@ -478,35 +498,14 @@ int main(int argc, char **argv) {
     }
     globfree(&gbuf);
 
-  }
   //
   // For the rig, ptt, and wkey devices, add the defaults
-  // if they are not yet present
+  // if they are not yet present. Set the input fields
+  // to that default value
   //
-  j=1;
-  for (i=0; i<numrigdev; i++) {
-    if (!strcmp(defrig, rigdev[i])) j=0;
-  }
-  if (j) {
-    rigdev[numrigdev++]=defrig;
-    SerialRig->add(defrig);
-  }
-  j=1;
-  for (i=0; i<numpttdev; i++) {
-    if (!strcmp(defptt, pttdev[i])) j=0;
-  }
-  if (j) {
-    pttdev[numpttdev++]=defptt;
-    SerialPTT->add(defptt);
-  }
-  j=1;
-  for (i=0; i<numwkydev; i++) {
-    if (!strcmp(defwky, wkydev[i])) j=0;
-  }
-  if (j) {
-    wkydev[numwkydev++]=defwky;
-    WinKey->add(defwky);
- }
+  AddToChoice(SerialRig, defrig); myrigdev=SerialRig->value();
+  AddToChoice(SerialPTT, defptt); mypttdev=SerialPTT->value();
+  AddToChoice(WinKey,    defwky); mywkydev=WinKey->value();
 
   for (i=0; i<numbaud; i++) {
     sprintf(str,"%d",baudrates[i]);
@@ -517,30 +516,6 @@ int main(int argc, char **argv) {
     if (baudrates[i] == defbaud) {
       mybaud=i;
       BaudRate->value(i);
-    }
-  }
-
-  SerialRig->value(0); myrigdev=SerialRig->value();
-  for (i=0; i<numrigdev; i++) {
-    if (!strcmp(defrig, rigdev[i])) {
-      myrigdev=defrig;
-      SerialRig->value(i);
-    }
-  }
-
-  SerialPTT->value(0); mypttdev=0;
-  for (i=0; i<numpttdev; i++) {
-    if (!strcmp(defptt, pttdev[i])) {
-      mypttdev=i;
-      SerialPTT->value(i);
-    }
-  }
-
-  WinKey->value(0);    mywkydev=0;
-  for (i=0; i<numwkydev; i++) {
-    if (!strcmp(defwky, wkydev[i])) {
-      mywkydev=i;
-      WinKey->value(i);
     }
   }
 
@@ -626,7 +601,10 @@ int main(int argc, char **argv) {
 
   Fl::add_timeout(2.0, update_freq, NULL);
   Fl::run();
-  // Now the window is closed
+
+  //
+  // We arrive here if the window is closed
+  //
   close_hamlib();
 }
 
@@ -637,7 +615,7 @@ void choose_model(Fl_Widget *w, void*)
 
 void choose_wkey(Fl_Widget *w, void*)
 {
-mywkydev=((Fl_Choice *) w)->value();
+mywkydev=((Fl_Input_Choice *) w)->value();
 }
 
 void choose_serial(Fl_Widget *w, void*)
@@ -647,7 +625,7 @@ void choose_serial(Fl_Widget *w, void*)
 
 void choose_ptt(Fl_Widget *w, void*)
 {
-mypttdev= ((Fl_Choice *) w)->value();
+mypttdev= ((Fl_Input_Choice *) w)->value();
 }
 
 void choose_baud(Fl_Widget *w, void*)
@@ -1011,18 +989,7 @@ void open_rig(Fl_Widget *w, void *)
     
     val=((Fl_Button *)w)->value();
     if (val == 1) {
-       // Add serial rig, if not yet present
-       val=1;
-       for (i=0; i<numrigdev; i++) {
-         if (!strcmp(myrigdev,rigdev[i])) val=0;
-       }
-       if (val) {
-         SerialRig->add(myrigdev);
-         s= (char *) malloc(strlen(myrigdev)+1);
-         strcpy(s,myrigdev);
-         rigdev[numrigdev]=(const char *) s;
-       }
-       val=open_hamlib(myrigdev,pttdev[mypttdev],wkydev[mywkydev],baudrates[mybaud],mymodel);
+       val=open_hamlib(myrigdev,mypttdev,mywkydev,baudrates[mybaud],mymodel);
        ((Fl_Button *)w)->value(val);
 	if (val > 0) {
 	    // ask rig for current values. Adjust accordingly
@@ -1291,8 +1258,8 @@ void do_saveprefs(Fl_Widget *w, void*) {
   if (fp) {
      fprintf(fp,"%s\n",mycall);
      fprintf(fp,"%s\n",myrigdev);
-     fprintf(fp,"%s\n",pttdev[mypttdev]);
-     fprintf(fp,"%s\n",wkydev[mywkydev]);
+     fprintf(fp,"%s\n",mypttdev);
+     fprintf(fp,"%s\n",mywkydev);
      fprintf(fp,"%d\n",baudrates[mybaud]);
      fprintf(fp,"%s\n",get_rigname(mymodel));
      fprintf(fp,"%s\n",sounddevname[mysounddev]);

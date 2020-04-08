@@ -1350,14 +1350,16 @@ void update_freq(void *)
     int   m;
     char  *p;
 
-#ifdef __APPLE__
     ptt=get_ptt();
     f=get_freq() / 1000000.0;  // in MHz
     if (ptt == 0) ptt=get_ptt(); // ptt==0 means PTT_OFF before and after frequency readout
     sprintf(str,"%8.3f", f);
     freq->value(str);
+#ifdef __APPLE__
     //
-    // push data to MLDX if requested
+    // Only MacOS:
+    // ===========
+    // push freq and mode data to MLDX if requested
     // but do not push data do MLDX when transmitting (so the frequency may be
     // different from the RX frequency).
     // 
@@ -1392,8 +1394,7 @@ void update_freq(void *)
 	waitpid(pid, &stat, 0);
     }
 #endif
-    // On non-MacOS systems, we simply track the mode of the rig
-    // update mode
+    // track the mode of the rig
     m=get_mode();
     mode1->value(0);
     mode2->value(0);

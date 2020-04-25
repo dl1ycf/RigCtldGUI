@@ -85,22 +85,19 @@ int get_rfpower()
    return mwpower / 1000;
 }
 
-static float  my_power = 0.50;
-static mode_t my_mode = 0;
-static pbwidth_t my_width = 0;
-
 void set_rfpower(int pow)
 {
     value_t val;
     unsigned int mwpower;
     freq_t freq;
+    float fpow;
 
     if (can_hamlib()) {
-	my_power=pow;
+	fpow=pow;
         mwpower=1000*pow;
         freq=kHz(14000);
-        rig_mW2power(rig, &my_power, mwpower, freq, RIG_MODE_CW);
-        val.f=my_power;
+        rig_mW2power(rig, &fpow, mwpower, freq, RIG_MODE_CW);
+        val.f=fpow;
         rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, val);
 	free_hamlib();
     }
@@ -116,8 +113,16 @@ void rig_tune(int pow)
     value_t val;
     freq_t freq;
     float  fpow;
+    static rmode_t saved_mode;
+    static pbwidth_t saved_width;
+    static float saved_power;
+    
     if (can_hamlib()) {
         if (pow > 0) {
+            rig_get_mode(rig, RIG_VFO_CURR, &saved_mode, &saved_width);
+            rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &val);
+            saved_power=val.f;
+            fprintf(stderr,"SAVED POWER=%f\n", saved_power);
             rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
             rig_set_mode(rig, RIG_VFO_CURR, RIG_MODE_FM,rig_passband_normal(rig,RIG_MODE_FM));
             val.f = 0.01*pow;
@@ -125,9 +130,10 @@ void rig_tune(int pow)
             rig_set_ptt(rig, RIG_VFO_CURR, rigctl_ptt_cmd);
         } else {
             rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
-            val.f=my_power;
+            val.f=saved_power;
+            fprintf(stderr,"RESTORED POWER=%f\n", saved_power);
             rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, val);
-            rig_set_mode(rig,RIG_VFO_CURR,my_mode,my_width);
+            rig_set_mode(rig,RIG_VFO_CURR,saved_mode,saved_width);
         }
 	free_hamlib();
     }
@@ -248,8 +254,10 @@ int get_mode()
 
 void set_mode(int mode)
 {
+    mode_t my_mode;
+    pbwidth_t my_width;
+
     if (can_hamlib()) {
-	my_mode=mode;
 	switch(mode) {
             case 0:
 		my_mode=RIG_MODE_CW;

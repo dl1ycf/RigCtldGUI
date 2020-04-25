@@ -240,6 +240,38 @@ void AddToChoice(Fl_Input_Choice *w, char *s) {
   } 
 }
 
+static int event_pass=1;
+static long counter=0;
+
+int myHandler(int e, Fl_Window *w) {
+//
+// The rationale for this handler is that is simply behaves
+// is it were not there normally (that is, as long as even_pass == 1).
+//
+// If event_pass is set to zero, this event handler just calls do_tune with
+// two dummy arguments if the triggering event was a mouse click.
+//
+// This call to do_tune will restore event_pass ==1 so normal operation
+// continues.
+//
+// This mechanism is used if one of the buttons in the "Tune" menu is activated.
+// The tuning will continue until a mouse click within the controller window takes
+// place, then tuning is stopped.
+// In this way, any temporary change of the mode or the output power can properly
+// and safely be restored.
+//
+  if (event_pass == 1) {
+    return Fl::handle_(e,w);
+  }
+  if (Fl::event_buttons()) {
+    //
+    // Any mouse click will terminate the tune event
+    //
+    do_tune(NULL, NULL);
+  }
+  return 0;
+}
+
 int main(int argc, char **argv) {
 
   int i,j;
@@ -250,6 +282,7 @@ int main(int argc, char **argv) {
   char filename[PATH_MAX];
   struct stat fstat;
 
+  Fl::event_dispatch(myHandler);
   // obtain $HOME/.rigcontrol dir
   strcpy(workdir,".");
   cp=getenv("HOME");
@@ -753,48 +786,40 @@ err:
 
 void do_tune(Fl_Widget *w, void * data)
 {
-    int val=((Fl_Button *)w)->value();
-    int cmd=(int) (long) data;
+    int val,cmd;
+    static int last_cmd;
+    static Fl_Widget *last_w;
 
-    if (val == 1) {
-	tune1->value(0);
-	tune2->value(0);
-	tune3->value(0);
-	tune4->value(0);
-	tune5->value(0);
+//
+//  These buttons are special.
+//  Do not return but wait until button is 
+//  de-selected
+//
+    if (event_pass == 1) {
+      val=((Fl_Button *)w)->value();
+      cmd=(int) (long) data;
+      last_cmd=cmd;
+      last_w=w;
+      event_pass=0;
+    } else {
+      val=0;
+      cmd=last_cmd;
+      event_pass=1;
+      ((Fl_Button *)last_w)->value(0);
     }
-    if (val == 1) ((Fl_Button *)w)->value(1);
     switch (cmd) {
       case 1: // "tune" carrier with  5 watts
-	do_tone(0,1);
-	do_tone(0,2);
-	do_tone(0,3);
         if (val == 1) rig_tune(5); else rig_tune(0); break;
       case 2: // "tune" carrier with 25 watt
-	do_tone(0,1);
-	do_tone(0,2);
-	do_tone(0,3);
         if (val == 1) rig_tune(25); else rig_tune(0); break;
       case 3:
-	rig_tune(0);
-	do_tone(0,1);
-	do_tone(0,2);
-	do_tone(0,3);
-        if (val == 1) do_tone(1,1);
+        if (val == 1) do_tone(1,1); else do_tone(0,1);
         break;
       case 4:
-	rig_tune(0);
-	do_tone(0,1);
-	do_tone(0,2);
-	do_tone(0,3);
-        if (val == 1) do_tone(1,2);
+        if (val == 1) do_tone(1,2); else do_tone(0,2);
         break;
       case 5:
-	rig_tune(0);
-	do_tone(0,1);
-	do_tone(0,2);
-	do_tone(0,3);
-        if (val == 1) do_tone(1,3);
+        if (val == 1) do_tone(1,3); else do_tone(0,3);
         break;
     }
 }
@@ -1350,33 +1375,38 @@ void update_freq(void *)
     int   m;
     char  *p;
 
-    ptt=get_ptt();
-    f=get_freq() / 1000000.0;  // in MHz
-    if (ptt == 0) ptt=get_ptt(); // ptt==0 means PTT_OFF before and after frequency readout
-    sprintf(str,"%8.3f", f);
-    freq->value(str);
+//
+//  if we are tuning,  just return (do not track mode and power since it is temporarily
+//  changed)
+//
+    if (event_pass == 1) {
+      ptt=get_ptt();
+      f=get_freq() / 1000000.0;  // in MHz
+      if (ptt == 0) ptt=get_ptt(); // ptt==0 means PTT_OFF before and after frequency readout
+      sprintf(str,"%8.3f", f);
+      freq->value(str);
 #ifdef __APPLE__
-    //
-    // Only MacOS:
-    // ===========
-    // push freq and mode data to MLDX if requested
-    // but do not push data do MLDX when transmitting (so the frequency may be
-    // different from the RX frequency).
-    // 
-    // If we CANNOT GET THE PTT STATUS and if the frequency change is less than 3 kHz,
-    // this is possibly a split-tx freq and no frequency is reported to MLDX.
-    // REASON: do not overwrite the MODE field when you are filling out the logbook
-    // entry while TXing.
-    //
-    // If the PTT state can be determined, we send frequency information only if
-    // PTT was OFF before and after the frequency readout.
-    //
-    doit = mldx_flag;
-    if (ptt < 0) doit = doit && (fabs(f-mldx_last_freq) > 0.003);    // Cannot get PTT
-    if (ptt == 0) doit = doit && (fabs(f-mldx_last_freq) > 0.001);   // we are in RX mode
-    if (ptt == 1) doit = 0;                                          // possibly in TX mode
-    if (doit) {
-	mldx_last_freq=f;
+      //
+      // Only MacOS:
+      // ===========
+      // push freq and mode data to MLDX if requested
+      // but do not push data do MLDX when transmitting (so the frequency may be
+      // different from the RX frequency).
+      // 
+      // If we CANNOT GET THE PTT STATUS and if the frequency change is less than 3 kHz,
+      // this is possibly a split-tx freq and no frequency is reported to MLDX.
+      // REASON: do not overwrite the MODE field when you are filling out the logbook
+      // entry while TXing.
+      //
+      // If the PTT state can be determined, we send frequency information only if
+      // PTT was OFF before and after the frequency readout.
+      //
+      doit = mldx_flag;
+      if (ptt < 0) doit = doit && (fabs(f-mldx_last_freq) > 0.003);    // Cannot get PTT
+      if (ptt == 0) doit = doit && (fabs(f-mldx_last_freq) > 0.001);   // we are in RX mode
+      if (ptt == 1) doit = 0;                                          // possibly in TX mode
+      if (doit) {
+  	mldx_last_freq=f;
 	sprintf(str,"mldx://tune?freq=%0.3f",f);
         p=(char *)mode->value();
         if (strlen(p) > 0) {
@@ -1392,21 +1422,22 @@ void update_freq(void *)
 	}
 	// Forking process. Wait for child to terminate
 	waitpid(pid, &stat, 0);
-    }
+      }
 #endif
-    // track the mode of the rig
-    m=get_mode();
-    mode1->value(0);
-    mode2->value(0);
-    mode3->value(0);
-    mode4->value(0);
-    mode5->value(0);
-    switch (m) {
+      // track the mode of the rig
+      m=get_mode();
+      mode1->value(0);
+      mode2->value(0);
+      mode3->value(0);
+      mode4->value(0);
+      mode5->value(0);
+      switch (m) {
         case 0: mode1->value(1); break;
         case 1: mode2->value(1); break;
         case 2: mode3->value(1); break;
         case 3: mode4->value(1); break;
         case 4: mode5->value(1); break;
+      }
     }
     // Repeat this every 2 seconds. Note that get_freq(), get_ptt(),  get_mode()
     // may have to wait for the hamlib mutex.

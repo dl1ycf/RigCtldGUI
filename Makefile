@@ -1,7 +1,7 @@
 ########################################################################################################
 #
 # To be compatible with the hamlib "rigctld" command, several files have been taken from
-# the hamlib source code and slightly modified. These files are all from hamlib/tests:
+# the hamlib source code (unmodified!).
 #
 # rigctl_parse.c
 # rigctl_parse.h
@@ -9,6 +9,15 @@
 # sprintflst.c
 # sprintflst.h
 # uthash.h
+#
+# To be able to use them, we have provided the following header files and
+# included there only the bare minimum required to compile those files.
+#
+# misc.h
+# iofunc.h
+# serial.h
+#
+# Do not overwrite these three files with files from the hamlib repository!
 #
 # To compile and link, hamlib must be installed on the machine. More specifically include files
 # such as <hamlib/rig.h> must be found, and the argument "-lhamlib" in the link step must link

@@ -397,6 +397,7 @@ int open_hamlib(const char* rigdev, const char* pttdev, const char *wkeydev, int
     }
 
     // init Hamlib
+    rig_set_debug(RIG_DEBUG_ERR);
     rig = rig_init(rigs[model].model); if (!rig) goto err_ret;
     err = rig_set_conf(rig, rig_token_lookup(rig,"itu_region"), "1");
     err = rig_set_conf(rig, rig_token_lookup(rig,"data_bits"), "8");
@@ -447,10 +448,7 @@ err_ret:
     
 }
 
-typedef void (*sync_cb_t)(int);
-extern int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc, sync_cb_t sync_cb,
-                 int interactive, int prompt, int vfo_mode, char send_cmd_term,
-                 int *ext_resp_ptr, char *resp_sep_ptr);
+#include "rigctl_parse.h"
 extern FILE *fmemopen(void *, size_t, const char *);
 
 void *rigctld_serve(void * w)
@@ -522,6 +520,7 @@ void *rigctld_serve(void * w)
             // via hamlib_close in the main thread
             // I/O to and from rigctl_parse via a "memory STREAM"
 	    int  ext_resp=0;
+            int  vfo_mode=0;
 	    char resp_sep='\n';
 	    char send_cmd_term = '\r';
             fpin=fmemopen(input, insize, "r");
@@ -535,7 +534,7 @@ void *rigctld_serve(void * w)
 			     NULL,		// sync_cb dummy
 			     1,			// interactive
 			     0,			// prompt
-			     0,			// vfo_mode
+			     &vfo_mode,		// vfo_modeode
 			     send_cmd_term,	// send_cmd_term
 			     &ext_resp,		// unused
 			     &resp_sep);    	// unused

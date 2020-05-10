@@ -130,32 +130,56 @@ int open_winkey_port(const char *path)
     readWkey(buf, 1);
     fprintf(stderr,"WinKey version number: %d\n", (int) buf[0]);
     wkey_version=buf[0];
+    //
     // disable pushbutton reporting, so we always get the status byte
     // so we do not have to distinguish between WK1 and WK2
+    //
     buf[0]=0;
     buf[1]=10;
     writeWkey(buf, 2);
+    //
+    // Initial speed: 20 wpm
+    //
+    buf[0]=0x02;
+    buf[1]=20;
+    writeWkey(buf, 2);
+    //
+    // Standard weighting
+    //
+    buf[0]=0x03;
+    buf[1]=50;
+    writeWkey(buf, 2);
+    //
     // set PTT lead-in and lead-out
+    //
+    // In many situations, you will need a much smaller lead-in
+    // This one is for SDRs with a "slow" PA connected
+    //
+    // The lead-out is fixed to 400 msec but with scale inversely
+    // with the speed
+    //
     buf[0]=4;
-    buf[1]=5;
-    buf[2]=50;
+    buf[1]=15;    // 150 msec lead-in
+    buf[2]=40;    // 400 msec lead-out (for 20 wpm)
     writeWkey(buf, 3);
+    //
     // set SpeedPot range: 5..30 WPM
+    //
     buf[0]=5;
     buf[1]=5;
     buf[2]=25;
     buf[3]=0;
     writeWkey(buf, 3);
+    //
     // clear buffer
+    //
     buf[0]=0x0A;
     writeWkey(buf, 1);
+    //
     // turn off Farnsworth
+    //
     buf[0]=0x0D;
     buf[1]=0;
-    writeWkey(buf, 2);
-    // Initial speed: 20 wpmt
-    buf[0]=0x02;
-    buf[1]=20;
     writeWkey(buf, 2);
     return 1;
 }
@@ -186,24 +210,28 @@ void send_winkey(const char *msg)
     }
 }
 
+//
+// Speed == 0 means "turn to speed pot"
+//
 void set_winkey_speed(int speed)
 {
-    unsigned char buf[2];
+    unsigned char buf[3];
     if (speed > 50) speed=50;
     if (speed < 5 && speed != 0)  speed=5;
-#if 1
-    // use Farnsworth timing with slightly faster letters
+    // change speed
     buf[0]=0x02;
     buf[1]=speed;
     writeWkey(buf, 2);
-    //buf[0]=0x0D;
-    //buf[1]=speed+1;
-    //writeWkey(buf, 2);
-#else
-    // Change speed "buffered", may be changed any time by 
-    // the Speed Pot.
-    buf[0]=0x1c;
-    buf[1]=speed;
-#endif
-    writeWkey(buf, 2);
+//
+//  adjust the lead-out time to the CW speed
+//  take 400 msec for 20 wpm and scale accordingly
+//  (e.g. 10 wpm gives 800 msec lead-out and 40 wpm gives 200 msec lead-out)
+//
+//  This avoids "relay chatter" when switching to qrs
+//
+    if (speed >= 5) {
+      buf[0]=4;
+      buf[1]=15;    // 150 msec lead-in
+      buf[2]=800/speed;   // lead-out adjusted to speed
+    }
 }

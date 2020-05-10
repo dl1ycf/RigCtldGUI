@@ -122,7 +122,6 @@ void rig_tune(int pow)
             rig_get_mode(rig, RIG_VFO_CURR, &saved_mode, &saved_width);
             rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &val);
             saved_power=val.f;
-            fprintf(stderr,"SAVED POWER=%f\n", saved_power);
             rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
             rig_set_mode(rig, RIG_VFO_CURR, RIG_MODE_FM,rig_passband_normal(rig,RIG_MODE_FM));
             val.f = 0.01*pow;
@@ -131,7 +130,6 @@ void rig_tune(int pow)
         } else {
             rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
             val.f=saved_power;
-            fprintf(stderr,"RESTORED POWER=%f\n", saved_power);
             rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, val);
             rig_set_mode(rig,RIG_VFO_CURR,saved_mode,saved_width);
         }

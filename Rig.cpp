@@ -396,10 +396,10 @@ int main(int argc, char **argv) {
 
   Fl_Group *g2 = new Fl_Group(360,100,80,240);
   speed1 = new Fl_Button(380,130,  40, 20, "");   speed1->type(FL_RADIO_BUTTON);  speed1->color(7,5); speed1->callback(do_speed, (void *) 12);
-  speed2 = new Fl_Button(380,160,  40, 20, "16"); speed2->type(FL_RADIO_BUTTON);  speed2->color(7,5); speed2->callback(do_speed, (void *) 16);
-  speed3 = new Fl_Button(380,190,  40, 20, "20"); speed3->type(FL_RADIO_BUTTON);  speed3->color(7,5); speed3->callback(do_speed, (void *) 20);
-  speed4 = new Fl_Button(380,220,  40, 20, "24"); speed4->type(FL_RADIO_BUTTON);  speed4->color(7,5); speed4->callback(do_speed, (void *) 24);
-  speed5 = new Fl_Button(380,250,  40, 20, "30"); speed5->type(FL_RADIO_BUTTON);  speed5->color(7,5); speed5->callback(do_speed, (void *) 30);
+  speed2 = new Fl_Button(380,160,  40, 20, "15"); speed2->type(FL_RADIO_BUTTON);  speed2->color(7,5); speed2->callback(do_speed, (void *) 15);
+  speed3 = new Fl_Button(380,190,  40, 20, "18"); speed3->type(FL_RADIO_BUTTON);  speed3->color(7,5); speed3->callback(do_speed, (void *) 18);
+  speed4 = new Fl_Button(380,220,  40, 20, "21"); speed4->type(FL_RADIO_BUTTON);  speed4->color(7,5); speed4->callback(do_speed, (void *) 21);
+  speed5 = new Fl_Button(380,250,  40, 20, "24"); speed5->type(FL_RADIO_BUTTON);  speed5->color(7,5); speed5->callback(do_speed, (void *) 24);
   g2->end();
 
   Fl_Box *lab3  = new Fl_Box(280,100,80,20,"CW TXT");
@@ -875,7 +875,6 @@ void do_tone(int flag1, int flag2)
       }
       tonept=0;
 
-      usleep(50000);
       /* start  audio */
       bzero(&outputParameters, sizeof(outputParameters));
       outputParameters.device = sounddevice;
@@ -995,6 +994,9 @@ void do_mode(Fl_Widget *, void *data)
 void do_speed(Fl_Widget *, void* data)
 {
     int val = (int) (long) data;
+    //
+    // in WinKey mode, the first "speed" button mean "use speed pot"
+    //
     if (wkeymode == 2 && val == 12) val=0;
     set_cwspeed(val);
 }
@@ -1024,33 +1026,37 @@ void open_rig(Fl_Widget *w, void *)
 	    pow4->value(0);
 	    pow5->value(0);
 	    val=get_rfpower();
+	    //
+            // Map
+            //  0   -   8 Watt  ==>   5 Watt
+            //  9   -  19 Watt  ==>  10 Watt
+            // 20   -  39 Watt  ==>  30 Watt
+            // 40   -  74 Watt  ==>  50 Watt
+            // 75   -     Watt  ==> 100 Watt
+            //
 	    if (val <  8) { set_rfpower(5); pow1->value(1); }
 	    else if (val < 20) { set_rfpower(10); pow2->value(1); }
 	    else if (val < 40) { set_rfpower(30); pow3->value(1); }
 	    else if (val < 75) { set_rfpower(50); pow4->value(1); } else { set_rfpower(100); pow5->value(1); }
-
-	    // Set default CW speed (20 wpm)
+	    //
+ 	    // Make label of first button and set default speed
+            //
  	    if (wkeymode == 2) {
 		speed1->label("Pot");
-	        speed1->value(1);
-	        speed3->value(0);
-	        set_cwspeed(0);
 	    } else {
 		speed1->label("12");
-	        speed1->value(0);
-	        speed3->value(1);
-	        set_cwspeed(20);
 	    }
+	    speed1->value(0);
 	    speed2->value(0);
-	    speed4->value(0);
+	    speed3->value(0);
+	    speed4->value(1);
 	    speed5->value(0);
-
+	    set_cwspeed(21);
             //
             // Upon each sucessful connection to a rig,
-	    // the parameters are save
+	    // save the parameters
             //
             do_saveprefs(NULL, NULL);
-
 	}
     } else {
 	close_hamlib();
@@ -1424,7 +1430,7 @@ void update_freq(void *)
 	waitpid(pid, &stat, 0);
       }
 #endif
-      // track the mode of the rig
+      // track the mode of the rig and set mode button accordingly
       m=get_mode();
       mode1->value(0);
       mode2->value(0);

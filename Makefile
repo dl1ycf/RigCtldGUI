@@ -37,8 +37,8 @@ CXXFLAGS=	-O
 # NOTE: "make Rig" makes the program
 #       (MacOS, Linux)
 #
-Rig:	$(OBJS)
-	$(CXX) -o Rig $(OBJS) $(LIBS)
+RigCtl:	$(OBJS)
+	$(CXX) -o RigCtl $(OBJS) $(LIBS)
 
 rigctl_parse.o: rigctl_parse.c
 	$(CC) $(CFLAGS) -c rigctl_parse.c
@@ -50,32 +50,25 @@ sprintflst.o:
 	$(CC) $(CFLAGS) -c sprintflst.c
 
 clean:
-	rm -rf $(OBJS) Rig Rig.app
+	rm -rf $(OBJS) RigCtl RigCtl.app
 
 ####################################################################
 #
 # NOTE: "make app" is for Macintosh OSX only
-#       Files only needed to build a MacOS "app":
+#       Note that the libraries are NOT put into the app bundle
 #       PkgInfo, Info.plist, Rig.icns
 #
 ####################################################################
-app:  Rig
-	@echo -n Creating AppBundle ....
-	@rm -rf Rig.app
-	@mkdir -p Rig.app/Contents/MacOS
-	@mkdir -p Rig.app/Contents/Resources
-	@mkdir -p Rig.app/Contents/Frameworks
-	@cp Rig Rig.app/Contents/MacOS/Rig
-	@echo -n copying libraries ...
-	@cd Rig.app/Contents; \
-	for lib in `otool -L MacOS/Rig | grep \.dylib | sed -e "s/ (.*//" | grep -Ev "^[[:space:]]*/(usr/lib|System)" `; do \
-          libfn="`basename $$lib`"; \
-          cp "$$lib" "Frameworks/$$libfn"; \
-	  chmod 755 "Frameworks/$$libfn"; \
-          install_name_tool -id "@executable_path/../Frameworks/$$libfn" "Frameworks/$$libfn"; \
-          install_name_tool -change "$$lib" "@executable_path/../Frameworks/$$libfn" MacOS/Rig; \
-	done
-	@echo finishing up.
-	@cp PkgInfo Rig.app/Contents
-	@cp Info.plist Rig.app/Contents
-	@cp Rig.icns Rig.app/Contents/Resources
+app:  RigCtl
+	@echo Creating AppBundle ....
+	@rm -f $(HOME)/bin/RigCtl
+	@cp RigCtl $(HOME)/bin/RigCtl
+	@rm -rf RigCtl.app
+	@mkdir RigCtl.app
+	@mkdir -p RigCtl.app/Contents/MacOS
+	@mkdir -p RigCtl.app/Contents/Resources
+	@mkdir -p RigCtl.app/Contents/Frameworks
+	@cp RigCtl RigCtl.app/Contents/MacOS/RigCtl
+	@cp PkgInfo RigCtl.app/Contents
+	@cp Info.plist RigCtl.app/Contents
+	@cp RigCtl.icns RigCtl.app/Contents/Resources

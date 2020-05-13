@@ -140,11 +140,10 @@ void cw_txtout(char *, int);
 void do_text (Fl_Widget *, void *);
 void do_voice(Fl_Widget *, void *);
 void do_tune (Fl_Widget *, void *);
-#ifdef __APPLE__
 void do_mldx (Fl_Widget *, void *);
 static int mldx_flag=1;
+static int can_mldx=0;
 static double mldx_last_freq = -1.0;
-#endif
 void do_setcw(Fl_Widget *, void *);
 void do_setvoice(Fl_Widget *, void *);
 void do_saveprefs(Fl_Widget *, void *);
@@ -280,8 +279,14 @@ int main(int argc, char **argv) {
   char *cp;
   FILE *fp;
   char filename[PATH_MAX];
-  struct stat fstat;
+  struct stat statbuf;
 
+  //
+  // Determine if we run on Mac OS and have MacLoggerDX present
+  // In this case, /Applications/MacLoggerDX.app and /usr/bin/open should be
+  // present
+  //
+  can_mldx = (stat("/Applications/MacLoggerDX.app",&statbuf) == 0)  &&  (stat("/usr/bin/open", &statbuf) == 0);
   Fl::event_dispatch(myHandler);
   // obtain $HOME/.rigcontrol dir
   strcpy(workdir,".");
@@ -289,7 +294,7 @@ int main(int argc, char **argv) {
   if (cp) {
       // look if $HOME/.rigcontrol exists, otherwise make it
       sprintf(filename,"%s/.rigcontrol",cp);
-      if (stat(filename, &fstat) != 0) {
+      if (stat(filename, &statbuf) != 0) {
         if (mkdir(filename,0755) == 0) strcpy(workdir,filename);
       } else {
 	strcpy(workdir,filename);
@@ -484,10 +489,10 @@ int main(int argc, char **argv) {
   mode->callback(do_modeinp, NULL);
   mode->when(FL_WHEN_ENTER_KEY_ALWAYS);
 
-#ifdef __APPLE__
-  Fl_Button *mldx = new Fl_Button(320, 280, 180, 20, "Tell MacLoggerDX"); mldx->type(FL_TOGGLE_BUTTON); mldx->color(7,2); mldx->callback(do_mldx, NULL);
-  mldx->value(mldx_flag);
-#endif
+  if (can_mldx) {
+    Fl_Button *mldx = new Fl_Button(320, 280, 180, 20, "Tell MacLoggerDX"); mldx->type(FL_TOGGLE_BUTTON); mldx->color(7,2); mldx->callback(do_mldx, NULL);
+    mldx->value(mldx_flag);
+  }
 
   Fl_Button *setcw    = new Fl_Button(320, 400, 120, 20, "Set CW texts");    setcw->callback(do_setcw, NULL);
   Fl_Button *setvoice = new Fl_Button(320, 430, 120, 20, "Set voice files"); setvoice->callback(do_setvoice, NULL);
@@ -1171,10 +1176,8 @@ void do_modeinp(Fl_Widget *w, void *data)
    // Convert input field to upper case
     char *val = (char *) (((Fl_Input *) w)->value());
     while (*val) { *val=toupper(*val); val++; }
-#ifdef __APPLE__
     // This triggers sending the changed mode
     mldx_last_freq=-1.0;
-#endif
 }
 
 void do_cwinp(Fl_Widget *w, void* data )
@@ -1220,13 +1223,11 @@ void do_volume(Fl_Widget *w, void *)
   master_volume=(double) pow(10.0,2.0*(val-1));
 }
 
-#ifdef __APPLE__
 void do_mldx(Fl_Widget *w, void *)
 {
     mldx_flag= ((Fl_Button *) w)->value();
     mldx_last_freq=-1.0;
 }
-#endif
 
 void apply_cw(Fl_Widget *w, void *) {
   char filename[PATH_MAX];
@@ -1391,45 +1392,45 @@ void update_freq(void *)
       if (ptt == 0) ptt=get_ptt(); // ptt==0 means PTT_OFF before and after frequency readout
       sprintf(str,"%8.3f", f);
       freq->value(str);
-#ifdef __APPLE__
-      //
-      // Only MacOS:
-      // ===========
-      // push freq and mode data to MLDX if requested
-      // but do not push data do MLDX when transmitting (so the frequency may be
-      // different from the RX frequency).
-      // 
-      // If we CANNOT GET THE PTT STATUS and if the frequency change is less than 3 kHz,
-      // this is possibly a split-tx freq and no frequency is reported to MLDX.
-      // REASON: do not overwrite the MODE field when you are filling out the logbook
-      // entry while TXing.
-      //
-      // If the PTT state can be determined, we send frequency information only if
-      // PTT was OFF before and after the frequency readout.
-      //
-      doit = mldx_flag;
-      if (ptt < 0) doit = doit && (fabs(f-mldx_last_freq) > 0.003);    // Cannot get PTT
-      if (ptt == 0) doit = doit && (fabs(f-mldx_last_freq) > 0.001);   // we are in RX mode
-      if (ptt == 1) doit = 0;                                          // possibly in TX mode
-      if (doit) {
-  	mldx_last_freq=f;
-	sprintf(str,"mldx://tune?freq=%0.3f",f);
-        p=(char *)mode->value();
-        if (strlen(p) > 0) {
-          strcat(str,"&mode=");
-          strcat(str,p);
+      if (can_mldx) {
+        //
+        // Only MacOS:
+        // ===========
+        // push freq and mode data to MLDX if requested
+        // but do not push data do MLDX when transmitting (so the frequency may be
+        // different from the RX frequency).
+        // 
+        // If we CANNOT GET THE PTT STATUS and if the frequency change is less than 3 kHz,
+        // this is possibly a split-tx freq and no frequency is reported to MLDX.
+        // REASON: do not overwrite the MODE field when you are filling out the logbook
+        // entry while TXing.
+        //
+        // If the PTT state can be determined, we send frequency information only if
+        // PTT was OFF before and after the frequency readout.
+        //
+        doit = mldx_flag;
+        if (ptt < 0) doit = doit && (fabs(f-mldx_last_freq) > 0.003);    // Cannot get PTT
+        if (ptt == 0) doit = doit && (fabs(f-mldx_last_freq) > 0.001);   // we are in RX mode
+        if (ptt == 1) doit = 0;                                          // possibly in TX mode
+        if (doit) {
+      	  mldx_last_freq=f;
+  	  sprintf(str,"mldx://tune?freq=%0.3f",f);
+          p=(char *)mode->value();
+          if (strlen(p) > 0) {
+            strcat(str,"&mode=");
+            strcat(str,p);
+          }
+	  pid=fork();
+          if (pid == 0) {
+	    // Child process.
+	    execl("/usr/bin/open","open","-g",str,NULL);
+	    // NOTREACHED, but PARANOIA
+	    (void) exit(0);
+	  }
+	  // Forking process. Wait for child to terminate
+	  waitpid(pid, &stat, 0);
         }
-	pid=fork();
-        if (pid == 0) {
-	  // Child process.
-	  execl("/usr/bin/open","open","-g",str,NULL);
-	  // NOTREACHED, but PARANOIA
-	  (void) exit(0);
-	}
-	// Forking process. Wait for child to terminate
-	waitpid(pid, &stat, 0);
       }
-#endif
       // track the mode of the rig and set mode button accordingly
       m=get_mode();
       mode1->value(0);

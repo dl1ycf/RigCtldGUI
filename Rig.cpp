@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #ifdef __APPLE__
 #define SER_PORT_BASIS "/dev/tty."

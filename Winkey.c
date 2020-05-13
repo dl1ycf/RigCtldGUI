@@ -155,12 +155,12 @@ int open_winkey_port(const char *path)
     // In many situations, you will need a much smaller lead-in
     // This one is for SDRs with a "slow" PA connected
     //
-    // The lead-out is fixed to 400 msec but with scale inversely
+    // The lead-out is fixed to 500 msec but with scale inversely
     // with the speed
     //
     buf[0]=4;
-    buf[1]=15;    // 150 msec lead-in
-    buf[2]=40;    // 400 msec lead-out (for 20 wpm)
+    buf[1]=10;    // 100 msec lead-in
+    buf[2]=40;    // 500 msec lead-out (for 20 wpm)
     writeWkey(buf, 3);
     //
     // set SpeedPot range: 5..30 WPM
@@ -224,14 +224,14 @@ void set_winkey_speed(int speed)
     writeWkey(buf, 2);
 //
 //  adjust the lead-out time to the CW speed
-//  take 400 msec for 20 wpm and scale accordingly
-//  (e.g. 10 wpm gives 800 msec lead-out and 40 wpm gives 200 msec lead-out)
+//  take 500 msec for 20 wpm and scale accordingly
+//  (e.g. 10 wpm gives 1000 msec lead-out and 40 wpm gives 250 msec lead-out)
 //
 //  This avoids "relay chatter" when switching to qrs
 //
     if (speed >= 5) {
       buf[0]=4;
-      buf[1]=15;    // 150 msec lead-in
-      buf[2]=800/speed;   // lead-out adjusted to speed
+      buf[1]=10;           // 100 msec lead-in
+      buf[2]=1000/speed;   // lead-out adjusted to speed
     }
 }

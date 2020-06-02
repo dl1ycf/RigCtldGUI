@@ -518,7 +518,7 @@ void *rigctld_serve(void * w)
             // via hamlib_close in the main thread
             // I/O to and from rigctl_parse via a "memory STREAM"
 	    int  ext_resp=0;
-            int  vfo_mode=0;
+            int  vfo_opt=0;
 	    char resp_sep='\n';
 	    char send_cmd_term = '\r';
             fpin=fmemopen(input, insize, "r");
@@ -532,7 +532,7 @@ void *rigctld_serve(void * w)
 			     NULL,		// sync_cb dummy
 			     1,			// interactive
 			     0,			// prompt
-			     &vfo_mode,		// vfo_modeode
+			     &vfo_opt,		// vfo_opt
 			     send_cmd_term,	// send_cmd_term
 			     &ext_resp,		// unused
 			     &resp_sep);    	// unused

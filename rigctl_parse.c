@@ -736,6 +736,8 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
                     break;
                 }
 
+                rig_debug(RIG_DEBUG_VERBOSE, "%s: cmd==0x%02x\n", __func__, cmd);
+
                 if (cmd == 0x0a || cmd == 0x0d)
                 {
                     if (last_was_ret)
@@ -935,11 +937,16 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
 
             if (interactive)
             {
-                rig_debug(RIG_DEBUG_TRACE, "%s: debug4\n", __func__);
+                int c = fgetc(fin);
+                rig_debug(RIG_DEBUG_TRACE, "%s: debug4 c=%02x\n", __func__, c);
 
-                if (prompt)
+                if (prompt && c == 0x0a)
                 {
                     fprintf_flush(fout, "%s: ", cmd_entry->arg1);
+                }
+                else
+                {
+                    ungetc(c, fin);
                 }
 
                 if (scanfc(fin, "%s", arg1) < 1)
@@ -4598,7 +4605,7 @@ declare_proto_rig(set_cache)
     int ms;
 
     CHKSCN1ARG(sscanf(arg1, "%d", &ms));
-    return rig_set_cache_timeout_ms(rig, CACHE_ALL, ms);
+    return rig_set_cache_timeout_ms(rig, HAMLIB_CACHE_ALL, ms);
 }
 
 
@@ -4607,7 +4614,7 @@ declare_proto_rig(get_cache)
 {
     int ms;
 
-    ms = rig_get_cache_timeout_ms(rig, CACHE_ALL);
+    ms = rig_get_cache_timeout_ms(rig, HAMLIB_CACHE_ALL);
 
     if ((interactive && prompt) || (interactive && !prompt && ext_resp))
     {

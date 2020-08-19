@@ -28,10 +28,8 @@
 #
 OBJS=		Rig.o Hamlib.o Winkey.o rigctl_parse.o dumpcaps.o sprintflst.o fmemopen.o
 LIBS=		-lfltk -lportaudio -lhamlib -lpthread
-CXX=		g++
-CC=		gcc
-CFLAGS=		-O
-CXXFLAGS=	-O
+CFLAGS?=	-O
+CXXFLAGS?=	-O
 
 #
 # NOTE: "make Rig" makes the program

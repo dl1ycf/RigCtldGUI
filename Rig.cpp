@@ -19,6 +19,7 @@
 
 #include "portaudio.h"
 #include "math.h"
+#include <stdio.h>
 #include <unistd.h>
 #include <glob.h>
 #include <string.h>

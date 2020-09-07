@@ -54,6 +54,7 @@ clean:
 #
 # NOTE: "make app" is for Macintosh OSX only
 #       Note that the libraries are NOT put into the app bundle
+#       except for hamlib
 #       PkgInfo, Info.plist, Rig.icns
 #
 ####################################################################
@@ -70,3 +71,14 @@ app:  RigCtl
 	@cp PkgInfo RigCtl.app/Contents
 	@cp Info.plist RigCtl.app/Contents
 	@cp RigCtl.icns RigCtl.app/Contents/Resources
+#
+#       Copy hamlib into the executable because this is a library that we have
+#       compiled and installed ourself.
+#
+	lib=`otool -L RigCtl.app/Contents/MacOS/RigCtl | grep libhamlib | sed -e "s/ (.*//" | sed -e "s/	//" `; \
+	 libfn=`basename $$lib`; \
+         cp "$$lib" "RigCtl.app/Contents/Frameworks/$$libfn"; \
+         chmod u+w "RigCtl.app/Contents/Frameworks/$$libfn"; \
+         install_name_tool -id "@executable_path/../Frameworks/$$libfn" "RigCtl.app/Contents/Frameworks/$$libfn"; \
+         install_name_tool -change "$$lib" "@executable_path/../Frameworks/$$libfn" RigCtl.app/Contents/MacOS/RigCtl
+

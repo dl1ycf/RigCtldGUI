@@ -36,7 +36,7 @@ CXXFLAGS?=	-O
 #       (MacOS, Linux)
 #
 RigCtl:	$(OBJS)
-	$(CXX) -o RigCtl $(OBJS) $(LIBS)
+	$(CXX) -o RigCtl $(OBJS) $(LIBS) $(LDFLAGS)
 
 rigctl_parse.o: rigctl_parse.c
 	$(CC) $(CFLAGS) -c rigctl_parse.c

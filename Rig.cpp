@@ -862,19 +862,19 @@ void do_tone(int flag1, int flag2)
       switch (flag2) {
         case 1:
         for (i=0; i< lentab; i++) {
-	    sintab[i] = 0.5*sin(ang1);
+	    sintab[i] = 0.98*sin(ang1);
 	    ang1 += FACT1;
 	}
 	break;
 	case 2:
         for (i=0; i< lentab; i++) {
-	    sintab[i] = 0.5*sin(ang2);
+	    sintab[i] = 0.98*sin(ang2);
 	    ang2 += FACT2;
 	}
         break;
         case 3:
         for (i=0; i< lentab; i++) {
-	    sintab[i] = 0.25*(sin(ang1)+sin(ang2));
+	    sintab[i] = 0.49*(sin(ang1)+sin(ang2));
 	    ang1 += FACT1;
 	    ang2 += FACT2;
 	}

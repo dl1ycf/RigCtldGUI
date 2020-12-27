@@ -390,8 +390,8 @@ int main(int argc, char **argv) {
   Fl_Group *g1 = new Fl_Group(440,100,80,240);
   pow1 = new Fl_Button(460,130,  40, 20, "  5"); pow1->type(FL_RADIO_BUTTON);  pow1->color(7,5); pow1->callback(do_pow, (void*)   5);
   pow2 = new Fl_Button(460,160,  40, 20, " 10"); pow2->type(FL_RADIO_BUTTON);  pow2->color(7,5); pow2->callback(do_pow, (void*)  10);
-  pow3 = new Fl_Button(460,190,  40, 20, " 30"); pow3->type(FL_RADIO_BUTTON);  pow3->color(7,5); pow3->callback(do_pow, (void*)  30);
-  pow4 = new Fl_Button(460,220,  40, 20, " 50"); pow4->type(FL_RADIO_BUTTON);  pow4->color(7,5); pow4->callback(do_pow, (void*)  50);
+  pow3 = new Fl_Button(460,190,  40, 20, " 20"); pow3->type(FL_RADIO_BUTTON);  pow3->color(7,5); pow3->callback(do_pow, (void*)  20);
+  pow4 = new Fl_Button(460,220,  40, 20, " 30"); pow4->type(FL_RADIO_BUTTON);  pow4->color(7,5); pow4->callback(do_pow, (void*)  30);
   pow5 = new Fl_Button(460,250,  40, 20, "100"); pow5->type(FL_RADIO_BUTTON);  pow5->color(7,5); pow5->callback(do_pow, (void*) 100);
   g1->end();
 
@@ -456,7 +456,7 @@ int main(int argc, char **argv) {
   lab7->labelfont(FL_BOLD);
   lab7->labelsize(14);
 
-  tune1 = new Fl_Button(10, 130,  60, 20, "CW  5");   tune1->type(FL_TOGGLE_BUTTON); tune1->color(7,2); tune1->callback(do_tune, (void *) 1);
+  tune1 = new Fl_Button(10, 130,  60, 20, "CW 10");   tune1->type(FL_TOGGLE_BUTTON); tune1->color(7,2); tune1->callback(do_tune, (void *) 1);
   tune2 = new Fl_Button(10, 160,  60, 20, "CW 25");   tune2->type(FL_TOGGLE_BUTTON); tune2->color(7,2); tune2->callback(do_tune, (void *) 2);
   tune3 = new Fl_Button(10, 190,  60, 20, "900 Hz");  tune3->type(FL_TOGGLE_BUTTON); tune3->color(7,2); tune3->callback(do_tune, (void *) 3);
   tune4 = new Fl_Button(10, 220,  60, 20, "1700 Hz"); tune4->type(FL_TOGGLE_BUTTON); tune4->color(7,2); tune4->callback(do_tune, (void *) 4);
@@ -815,8 +815,8 @@ void do_tune(Fl_Widget *w, void * data)
       ((Fl_Button *)last_w)->value(0);
     }
     switch (cmd) {
-      case 1: // "tune" carrier with  5 watts
-        if (val == 1) rig_tune(5); else rig_tune(0); break;
+      case 1: // "tune" carrier with 10 watts
+        if (val == 1) rig_tune(10); else rig_tune(0); break;
       case 2: // "tune" carrier with 25 watt
         if (val == 1) rig_tune(25); else rig_tune(0); break;
       case 3:
@@ -1035,18 +1035,19 @@ void open_rig(Fl_Widget *w, void *)
 	    val=get_rfpower();
 	    //
             // Map
-            //  0   -   8 Watt  ==>   5 Watt
-            //  9   -  19 Watt  ==>  10 Watt
-            // 20   -  39 Watt  ==>  30 Watt
-            // 40   -  74 Watt  ==>  50 Watt
-            // 75   -     Watt  ==> 100 Watt
+            //  0   -   7 Watt  ==>   5 Watt
+            //  8   -  14 Watt  ==>  10 Watt
+            // 15   -  24 Watt  ==>  20 Watt
+            // 25   -  49 Watt  ==>  30 Watt
+            // 50   -     Watt  ==> 100 Watt
             //
-	    if (val <  8) { set_rfpower(5); pow1->value(1); }
-	    else if (val < 20) { set_rfpower(10); pow2->value(1); }
-	    else if (val < 40) { set_rfpower(30); pow3->value(1); }
-	    else if (val < 75) { set_rfpower(50); pow4->value(1); } else { set_rfpower(100); pow5->value(1); }
+	    if (val <=  7)      { set_rfpower(  5); pow1->value(1); }
+	    else if (val <= 14) { set_rfpower( 10); pow2->value(1); }
+	    else if (val <= 24) { set_rfpower( 20); pow3->value(1); }
+	    else if (val <= 49) { set_rfpower( 30); pow4->value(1); }
+            else                { set_rfpower(100); pow5->value(1); }
 	    //
- 	    // Make label of first button and set default speed
+ 	    // Make label of first button and set default speed (21 wpm)
             //
  	    if (wkeymode == 2) {
 		speed1->label("Pot");

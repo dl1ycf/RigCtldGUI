@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
 
 /*
  * This file provides the functions
@@ -81,6 +82,8 @@ int open_winkey_port(const char *path)
     int ret;
     struct timeval tv;
     fd_set fds;
+    unsigned int bit;
+    int rc;
 
    
     if (!strcmp(path,"uh-wkey")) {
@@ -92,14 +95,31 @@ int open_winkey_port(const char *path)
 	// use serial port
 	fd = open(path, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (fd < 0) return 0;
+	tcflush(fd, TCIFLUSH);
+
+        // unset DTR and RTS
+#if defined(TIOCMBIS) && defined(TIOCMBIC)
+        bit = TIOCM_RTS | TIOCM_DTR;
+        rc = ioctl(fd, TIOCMBIC, &bit);
+#else
+        rc = ioctl(p->fd, TIOCMGET, &bit);
+        if (rc >= 0) {   
+          bit &= ~TIOCM_RTS;
+          bit &= ~TIOCM_DTR;
+          rc = ioctl(p->fd, TIOCMSET, &bit);
+        }
+#endif
+        if (rc < 0) {
+          fprintf(stderr,"Could not clear DTR and RTS\n");
+        }
 
 	tcflush(fd, TCIFLUSH);
 	tcgetattr(fd, &tty);
-	tty.c_cflag &= ~CSIZE; tty.c_cflag |= CS8;		// 8 data bits
+	tty.c_cflag &= ~CSIZE; tty.c_cflag |= CS8;	// 8 data bits
 	tty.c_cflag |= CSTOPB;				// 2 stop bits
-	tty.c_cflag &= ~CRTSCTS;				// no hardware handshake
+	tty.c_cflag &= ~CRTSCTS;			// no hardware handshake
 	tty.c_cflag &= ~PARENB;				// parity
-	tty.c_cflag |= (CLOCAL | CREAD);			// enable receiver
+	tty.c_cflag |= (CLOCAL | CREAD);		// enable receiver
 	tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);	// raw input
 	tty.c_oflag &= ~OPOST;				// raw output
 	tty.c_iflag &= ~IXON;				// no software handshake
@@ -138,10 +158,16 @@ int open_winkey_port(const char *path)
     buf[1]=10;
     writeWkey(buf, 2);
     //
-    // Initial speed: 20 wpm
+    // Sidetone: on, 800 Hz
+    //
+    buf[0]=0x01;
+    buf[1]=0x05;
+    writeWkey(buf, 2);
+    //
+    // Initial speed: 21 wpm
     //
     buf[0]=0x02;
-    buf[1]=20;
+    buf[1]=21;
     writeWkey(buf, 2);
     //
     // Standard weighting
@@ -150,26 +176,26 @@ int open_winkey_port(const char *path)
     buf[1]=50;
     writeWkey(buf, 2);
     //
-    // set PTT lead-in and lead-out
+    // set PTT lead-in (150 msec)
     //
-    // In many situations, you will need a much smaller lead-in
-    // This one is for SDRs with a "slow" PA connected
-    //
-    // The lead-out is fixed to 500 msec but with scale inversely
-    // with the speed
-    //
-    buf[0]=4;
-    buf[1]=10;    // 100 msec lead-in
-    buf[2]=40;    // 500 msec lead-out (for 20 wpm)
+    buf[0]=0x04;
+    buf[1]=15;    // 150 msec lead-in
+    buf[2]=0;     // no lead-out
     writeWkey(buf, 3);
     //
     // set SpeedPot range: 5..30 WPM
     //
-    buf[0]=5;
+    buf[0]=0x05;
     buf[1]=5;
     buf[2]=25;
     buf[3]=0;
     writeWkey(buf, 3);
+    //
+    // PinConfig: long hang time, Port1, Sidetone, PTT
+    //
+    //buf[0]=0x09;
+    //buf[1]=0x32;
+    //writeWkey(buf, 2);
     //
     // clear buffer
     //
@@ -179,7 +205,7 @@ int open_winkey_port(const char *path)
     // turn off Farnsworth
     //
     buf[0]=0x0D;
-    buf[1]=0;
+    buf[1]=10;
     writeWkey(buf, 2);
     return 1;
 }
@@ -222,16 +248,4 @@ void set_winkey_speed(int speed)
     buf[0]=0x02;
     buf[1]=speed;
     writeWkey(buf, 2);
-//
-//  adjust the lead-out time to the CW speed
-//  take 500 msec for 20 wpm and scale accordingly
-//  (e.g. 10 wpm gives 1000 msec lead-out and 40 wpm gives 250 msec lead-out)
-//
-//  This avoids "relay chatter" when switching to qrs
-//
-    if (speed >= 5) {
-      buf[0]=4;
-      buf[1]=10;           // 100 msec lead-in
-      buf[2]=1000/speed;   // lead-out adjusted to speed
-    }
 }

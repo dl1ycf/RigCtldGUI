@@ -16,4 +16,6 @@ void dump_hex(const unsigned char ptr[], size_t size);
 #  endif
 #endif
 
+#define ENTERFUNC rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s entered\n", __FILENAME__, __LINE__, __func__)
+#define RETURNFUNC(rc) {rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s return\n", __FILENAME__, __LINE__, __func__);return rc;}
 

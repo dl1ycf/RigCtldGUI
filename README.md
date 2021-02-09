@@ -1,8 +1,14 @@
 # RigCtldGUI
 A graphical user interface for rig control, offering also "rigctld" functionality
 
-This program is based on the "hamlib" rig control library (also contained in my GitHub account
-and at many other places). It offers to control the rig through a small graphical user interface.
+This program is based on the "hamlib" rig control library. Since parts of the code here,
+for example the file rigctl_parse.c and some others, are copied from Hamlib, this program
+will only compile and link well with a specific version of Hamlib present on your system.
+
+So this program requires the release version Hamlib4.0 to be present
+====================================================================
+
+The program is essentially a "rigctld" daemon with a small graphical user interface.
 
 What is currently implemented is
 
@@ -14,17 +20,18 @@ What is currently implemented is
 - send single-tone and two-tone signal
 - go to "TUNE" mode with 10 or 25 watt
 
-Furthermore, it runs a "rigctld" daemon. That is, once this program has connected to a rig,
-you can control the rig through other programs such as fldigi, wsjtx etc. by connecting
-to a "Hamlib NET rigctl" virtual rig to TCP port 4532.
+Since this is functionally more or less equivalent to a "rigctld" daemon,
+you can control your by other programs such as fldigi, wsjtx etc. by connecting
+to a "Hamlib NET rigctl" virtual rig to TCP port 4532. Thus, wsjtx connects
+to RigCtldGUI which connects to your rig.
 
 This way, you can, for example, run a digimode program and change the RF output power
-by clicking the appropriate button on this GUI.
+by clicking the appropriate button on this GUI, it is also possible to connect from
+several programs (say, wsjtx and fldigi) to your rig at the same time.
 
-The graphical user interface uses the FLTK library. When compiling the program
-REQUIRES that the "hamlib" source tree is present and located at "../hamlib".
-This is so because some source code files of hamlib are compiled with the program.
-It is also necessary that hamlib is installed, such that e.g. hamlib include files
+The graphical user interface uses the FLTK library, so a "devel" version of FLTK
+(version 1.3) must be installed, as well as a "devel" version of Hamlib (release
+version 4.0) such that e.g. hamlib include files
 
 #include <hamlib/rig.h>
 

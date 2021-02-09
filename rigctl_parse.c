@@ -166,7 +166,6 @@ declare_proto_rig(set_mode);
 declare_proto_rig(get_mode);
 declare_proto_rig(set_vfo);
 declare_proto_rig(get_vfo);
-declare_proto_rig(get_vfo_info);
 declare_proto_rig(set_ptt);
 declare_proto_rig(get_ptt);
 declare_proto_rig(get_ptt);
@@ -331,7 +330,6 @@ static struct test_table test_list[] =
     { 0x8f, "dump_state",       ACTION(dump_state),     ARG_OUT | ARG_NOVFO },
     { 0xf0, "chk_vfo",          ACTION(chk_vfo),        ARG_NOVFO, "ChkVFO" },   /* rigctld only--check for VFO mode */
     { 0xf2, "set_vfo_opt",      ACTION(set_vfo_opt),    ARG_NOVFO | ARG_IN, "Status" }, /* turn vfo option on/off */
-    { 0xf3, "get_vfo_info",     ACTION(get_vfo_info),   ARG_NOVFO | ARG_IN1 | ARG_OUT3, "VFO", "Freq", "Mode", "Width" }, /* turn vfo option on/off */
     { 0xf1, "halt",             ACTION(halt),           ARG_NOVFO },   /* rigctld only--halt the daemon */
     { 0x8c, "pause",            ACTION(pause),          ARG_IN, "Seconds" },
     { 0x00, "", NULL },
@@ -840,10 +838,7 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
         {
             if (interactive)
             {
-                arg1[0] = fgetc(fin);
-                arg1[1] = 0;
-
-                if (prompt && arg1[0] == 0x0a)
+                if (prompt)
                 {
                     fprintf_flush(fout, "VFO: ");
                 }
@@ -948,13 +943,16 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
 
             if (interactive)
             {
-                arg1[0] = fgetc(fin);
-                arg1[1] = 0;
-                rig_debug(RIG_DEBUG_TRACE, "%s: debug4 arg1=%c\n", __func__, arg1[0]);
+                int c = fgetc(fin);
+                rig_debug(RIG_DEBUG_TRACE, "%s: debug4 c=%02x\n", __func__, c);
 
-                if (prompt && arg1[0] == 0x0a)
+                if (prompt && c == 0x0a)
                 {
                     fprintf_flush(fout, "%s: ", cmd_entry->arg1);
+                }
+                else
+                {
+                    ungetc(c, fin);
                 }
 
                 if (scanfc(fin, "%s", arg1) < 1)
@@ -997,11 +995,15 @@ int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc,
             {
                 rig_debug(RIG_DEBUG_TRACE, "%s: debug7\n", __func__);
 
+#if 0 // was printing Reply: twice
+
                 if (prompt)
                 {
                     rig_debug(RIG_DEBUG_TRACE, "%s: debug8\n", __func__);
                     fprintf_flush(fout, "%s: ", cmd_entry->arg2);
                 }
+
+#endif
 
                 if (scanfc(fin, "%s", arg2) < 1)
                 {
@@ -2180,40 +2182,6 @@ declare_proto_rig(get_vfo)
     fprintf(fout, "%s%c", rig_strvfo(vfo), resp_sep);
 
     return status;
-}
-
-/* '\get_vfo_info' */
-declare_proto_rig(get_vfo_info)
-{
-    int retval;
-
-    ENTERFUNC;
-    if (!strcmp(arg1, "?"))
-    {
-        char s[SPRINTF_MAX_SIZE];
-        rig_sprintf_vfo(s, rig->state.vfo_list);
-        fprintf(fout, "%s\n", s);
-        return RIG_OK;
-    }
-
-    vfo = rig_parse_vfo(arg1);
-    freq_t freq=0;
-    rmode_t mode=RIG_MODE_NONE;
-    pbwidth_t width = 0;
-    retval = rig_get_vfo_info(rig, vfo, &freq, &mode, &width);
-
-    rig_debug(RIG_DEBUG_ERR,"%s: vfo=%s\n", __func__, rig_strvfo(vfo));
-    if ((interactive && prompt) || (interactive && !prompt && ext_resp))
-    {
-        fprintf(fout,"%s: %.0f\n", cmd->arg1, freq);
-        fprintf(fout,"%s: %s\n", cmd->arg2, rig_strrmode(mode));
-        fprintf(fout,"%s: %d\n", cmd->arg3, (int)width);
-    }
-    else
-    {
-        fprintf(fout,"%.0f\n%s\n%d\n", freq, rig_strrmode(mode), (int)width);
-    }
-    RETURNFUNC(retval);
 }
 
 
@@ -4141,10 +4109,6 @@ declare_proto_rig(dump_state)
         fprintf(fout, "vfo_ops=0x%x\n", rig->caps->vfo_ops);
         fprintf(fout, "ptt_type=0x%x\n", rig->state.pttport.type.ptt);
         fprintf(fout, "targetable_vfo=0x%x\n", rig->caps->targetable_vfo);
-        fprintf(fout, "has_set_vfo=%d\n", rig->caps->set_vfo != NULL);
-        fprintf(fout, "has_get_vfo=%d\n", rig->caps->get_vfo != NULL);
-        fprintf(fout, "has_set_freq=%d\n", rig->caps->set_freq != NULL);
-        fprintf(fout, "has_get_freq=%d\n", rig->caps->get_freq != NULL);
         fprintf(fout, "done\n");
     }
 

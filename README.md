@@ -6,7 +6,7 @@ for example the file rigctl_parse.c and some others, are copied from Hamlib, thi
 will only compile and link well with a specific version of Hamlib present on your system.
 
 So this program requires the release version Hamlib4.0 to be present
-====================================================================
+--------------------------------------------------------------------
 
 The program is essentially a "rigctld" daemon with a small graphical user interface.
 
@@ -21,9 +21,11 @@ What is currently implemented is
 - go to "TUNE" mode with 10 or 25 watt
 
 Since this is functionally more or less equivalent to a "rigctld" daemon,
-you can control your by other programs such as fldigi, wsjtx etc. by connecting
-to a "Hamlib NET rigctl" virtual rig to TCP port 4532. Thus, wsjtx connects
-to RigCtldGUI which connects to your rig.
+you can control your radio by other programs such as fldigi, wsjtx etc. that use
+hamlib. To this end, in wsjtx/fldigi choose
+"Hamlib NET rigctl" as the radio and for the interface, choose :4532 (that is,
+TCP port 4532 on the local computer). So the digimode program(s) communicates with
+the rig controller which in turn communicates with the radio.
 
 This way, you can, for example, run a digimode program and change the RF output power
 by clicking the appropriate button on this GUI, it is also possible to connect from

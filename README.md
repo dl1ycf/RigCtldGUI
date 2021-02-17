@@ -8,6 +8,9 @@ will only compile and link well with a specific version of Hamlib present on you
 So this program requires the release version Hamlib4.0 to be present
 --------------------------------------------------------------------
 
+To facilitate this, a complete Hamlib4.0 source code tree is deposited here,
+see file "Hamlib4.0_fixed.tar.gz".
+
 The program is essentially a "rigctld" daemon with a small graphical user interface.
 
 What is currently implemented is

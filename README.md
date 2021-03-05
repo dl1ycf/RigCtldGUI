@@ -13,7 +13,7 @@ see file "Hamlib4.0_fixed.tar.gz". However you can easily get a source code
 tree from the internet using the commands
 
 ````
-  cd where_you_want_to_create_the_hamlib_tree
+  cd <where you want to create the hamlib tree>
   git clone https://github.com/hamlib/hamlib
   cd hamlib
   git checkout tags/4.0

@@ -12,10 +12,12 @@ To facilitate this, a complete Hamlib4.0 source code tree is deposited here,
 see file "Hamlib4.0_fixed.tar.gz". However you can easily get a source code
 tree from the internet using the commands
 
-  - cd where_you_want_to_create_the_hamlib_tree
-  - git clone https://github.com/hamlib/hamlib
-  - cd hamlib
-  - git checkout tags/4.0
+````
+  cd where_you_want_to_create_the_hamlib_tree
+  git clone https://github.com/hamlib/hamlib
+  cd hamlib
+  git checkout tags/4.0
+````
 
 The program is essentially a "rigctld" daemon with a small graphical user interface.
 

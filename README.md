@@ -9,7 +9,15 @@ So this program requires the release version Hamlib4.0 to be present
 --------------------------------------------------------------------
 
 To facilitate this, a complete Hamlib4.0 source code tree is deposited here,
-see file "Hamlib4.0_fixed.tar.gz".
+see file "Hamlib4.0_fixed.tar.gz". However you can easily get a source code
+tree from the internet using the commands
+
+````
+  cd <where you want to create the hamlib tree>
+  git clone https://github.com/hamlib/hamlib
+  cd hamlib
+  git checkout tags/4.0
+````
 
 The program is essentially a "rigctld" daemon with a small graphical user interface.
 

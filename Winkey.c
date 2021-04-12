@@ -151,6 +151,10 @@ int open_winkey_port(const char *path)
     fprintf(stderr,"WinKey version number: %d\n", (int) buf[0]);
     wkey_version=buf[0];
     //
+    // Do not apply any settings, let the keyer use its
+    // "standalone" settings. The only thing we do is to disable
+    // pushbutton-reporting and clear the buffer.
+    //
     // disable pushbutton reporting, so we always get the status byte
     // so we do not have to distinguish between WK1 and WK2
     //
@@ -158,55 +162,10 @@ int open_winkey_port(const char *path)
     buf[1]=10;
     writeWkey(buf, 2);
     //
-    // Sidetone: on, 800 Hz
-    //
-    buf[0]=0x01;
-    buf[1]=0x05;
-    writeWkey(buf, 2);
-    //
-    // Initial speed: 21 wpm
-    //
-    buf[0]=0x02;
-    buf[1]=21;
-    writeWkey(buf, 2);
-    //
-    // Standard weighting
-    //
-    buf[0]=0x03;
-    buf[1]=50;
-    writeWkey(buf, 2);
-    //
-    // set PTT lead-in (150 msec)
-    //
-    buf[0]=0x04;
-    buf[1]=15;    // 150 msec lead-in
-    buf[2]=0;     // no lead-out
-    writeWkey(buf, 3);
-    //
-    // set SpeedPot range: 5..30 WPM
-    //
-    buf[0]=0x05;
-    buf[1]=5;
-    buf[2]=25;
-    buf[3]=0;
-    writeWkey(buf, 3);
-    //
-    // PinConfig: long hang time, Port1, Sidetone, PTT
-    //
-    //buf[0]=0x09;
-    //buf[1]=0x32;
-    //writeWkey(buf, 2);
-    //
     // clear buffer
     //
     buf[0]=0x0A;
     writeWkey(buf, 1);
-    //
-    // turn off Farnsworth
-    //
-    buf[0]=0x0D;
-    buf[1]=10;
-    writeWkey(buf, 2);
     return 1;
 }
 

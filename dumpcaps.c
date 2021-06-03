@@ -343,11 +343,15 @@ int dumpcaps(RIG *rig, FILE *fout)
     rig_sprintf_level_gran(prntbuf, caps->has_get_level, caps->level_gran);
     fprintf(fout, "Get level: %s\n", prntbuf);
 
+/*
+ * does no longer exist in Hamlib 4.0
+
     if ((caps->has_get_level & RIG_LEVEL_SQLSTAT))
     {
         fprintf(fout, "Warning--backend uses deprecated SQLSTAT level!\n");
         backend_warnings++;
     }
+*/
 
     if ((caps->has_get_level & RIG_LEVEL_RAWSTR)
             && caps->str_cal.size == 0

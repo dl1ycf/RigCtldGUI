@@ -847,7 +847,7 @@ void do_tone(int flag1, int flag2)
     if (sounddevice < 0) return;
 
     if (tstream) {
-      err = Pa_StopStream(tstream);
+      err = Pa_AbortStream(tstream);
       err = Pa_CloseStream(tstream);
       tstream = NULL;
     }

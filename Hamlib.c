@@ -11,18 +11,18 @@
 
 #include <hamlib/rig.h>
 
-//#define DEBUG(s, ...) fprintf(stderr,s, ##__VA_ARGS__)
-//#define TRACE(s, ...) fprintf(stderr,s, ##__VA_ARGS__)
-#define ERROR(s, ...) fprintf(stderr,s, ##__VA_ARGS__)
+//#define MYDEBUG(s, ...) fprintf(stderr,s, ##__VA_ARGS__)
+//#define MYTRACE(s, ...) fprintf(stderr,s, ##__VA_ARGS__)
+#define MYERROR(s, ...) fprintf(stderr,s, ##__VA_ARGS__)
 
-#ifndef DEBUG
-#define DEBUG(s, ...)
+#ifndef MYDEBUG
+#define MYDEBUG(s, ...)
 #endif
-#ifndef TRACE
-#define TRACE(s, ...)
+#ifndef MYTRACE
+#define MYTRACE(s, ...)
 #endif
-#ifndef ERROR
-#define ERROR(s, ...)
+#ifndef MYERROR
+#define MYERROR(s, ...)
 #endif
 
 //
@@ -475,7 +475,7 @@ void *rigctld_serve(void * w)
         for (;;) {
 	    // infinite loop: wait for characters to arrive, "break" if line is full
             if (!rig) {
-		TRACE("RIGCTLD: stopping  server, socket fd=%d\n",sock);
+		MYTRACE("RIGCTLD: stopping  server, socket fd=%d\n",sock);
                 close(sock);
                 return NULL;
             }
@@ -487,7 +487,7 @@ void *rigctld_serve(void * w)
             if (ret == 0) continue;
             if (ret < 0) {
                 // Socket broken, client terminated ungracefully
-                ERROR("RIGCTLD: broken pipe (select) -- Closing connetion\n");
+                MYERROR("RIGCTLD: broken pipe (select) -- Closing connetion\n");
 		close(sock);
 		return NULL;
             }
@@ -495,12 +495,12 @@ void *rigctld_serve(void * w)
             ret=read(sock, input+insize, 1);
             if (ret <= 0) {
                 // Socket broken, client terminated ungracefully
-                ERROR("RIGCTLD: broken pipe (read) -- Closing connection\n");
+                MYERROR("RIGCTLD: broken pipe (read) -- Closing connection\n");
 		close(sock);
 		return NULL;
             }
             if (insize >= INPUTSIZE) {
-                ERROR("RIGCTLD: line buffer overflow -- Closing connection\n");
+                MYERROR("RIGCTLD: line buffer overflow -- Closing connection\n");
 		close(sock);
 		return NULL;
             }
@@ -510,7 +510,7 @@ void *rigctld_serve(void * w)
             if (input[insize++] == 0x0a) break;
         }
         input[insize++]=0;
-        DEBUG("RIGCTLD: ToHamlibCmd=%s",input);
+        MYDEBUG("RIGCTLD: ToHamlibCmd=%s",input);
         // get exclusive access
         if(pthread_mutex_lock(&rigctld_mutex)) perror("RIGCTLD: mutex lock:");
         if (rig) {
@@ -524,7 +524,7 @@ void *rigctld_serve(void * w)
             fpin=fmemopen(input, insize, "r");
             fpout=fmemopen(output, OUTPUTSIZE, "w");
             memset(output, 0, OUTPUTSIZE);
-            DEBUG("RIGCTLD: calling Hamlib\n");
+            MYDEBUG("RIGCTLD: calling Hamlib\n");
             ret=rigctl_parse(rig,		// The rig
                              fpin, 		// The input stream
 			     fpout, 		// The output stream
@@ -536,7 +536,7 @@ void *rigctld_serve(void * w)
 			     send_cmd_term,	// send_cmd_term
 			     &ext_resp,		// unused
 			     &resp_sep);    	// unused
-            DEBUG("RIGCTLD: Hamlib execution finished\n");
+            MYDEBUG("RIGCTLD: Hamlib execution finished\n");
             fclose(fpin);
             fclose(fpout);
         }
@@ -545,7 +545,7 @@ void *rigctld_serve(void * w)
         // quit if error, empty line, of "q" command. Then there is no response
         //
         if (ret < 0 || ret == 1) {
-	    TRACE("RIGCTLD: stopping  server, socket fd=%d\n",sock);
+	    MYTRACE("RIGCTLD: stopping  server, socket fd=%d\n",sock);
 	    close(sock);
 	    return NULL;
 	}
@@ -553,16 +553,16 @@ void *rigctld_serve(void * w)
         // return result to the client. If pipe is broken, quit
         //
         output[OUTPUTSIZE]=0;   // just in case
-        DEBUG("%s",output);
+        MYDEBUG("%s",output);
         cp=output;
         while (*cp) {
             if (write(sock, cp++, 1) != 1) {
-                ERROR("RIGCTLD: broken pipe (write)\n");
+                MYERROR("RIGCTLD: broken pipe (write)\n");
 		close(sock);
 		return NULL;
             }
         }
-        DEBUG("RIGCTLD sent back %d chars, ret=%d\n",(int) (cp-output),ret);
+        MYDEBUG("RIGCTLD sent back %d chars, ret=%d\n",(int) (cp-output),ret);
     }
 }
 
@@ -584,7 +584,7 @@ void *rigctld_func(void * w)
     pthread_t thread;
     pthread_attr_t attr;
 
-    TRACE("RIGCTLD: starting daemon\n");
+    MYTRACE("RIGCTLD: starting daemon\n");
 
     /*
      * The following code is essentially from rigctld.c in the hamlib distro
@@ -601,7 +601,7 @@ void *rigctld_func(void * w)
 
     ret = getaddrinfo(src_addr, portno, &hints, &result);
     if (ret != 0) {
-	ERROR("RIGCTLD: GetAddrInfo: %s\n",gai_strerror(ret));
+	MYERROR("RIGCTLD: GetAddrInfo: %s\n",gai_strerror(ret));
         return NULL;
     }
 
@@ -621,7 +621,7 @@ void *rigctld_func(void * w)
     } while ((result = result->ai_next) != NULL);
 
     if (result == NULL) {
-	ERROR("Bind error, no suitable interface found\n");
+	MYERROR("Bind error, no suitable interface found\n");
 	return NULL;
     }
     if (listen(sock_listen, 4) < 0) {
@@ -637,7 +637,7 @@ void *rigctld_func(void * w)
      */
     while(1) {
 	if (!rig) {
-	    TRACE("RIGCTLD: stopping daemon (hamlib closed)\n");
+	    MYTRACE("RIGCTLD: stopping daemon (hamlib closed)\n");
 	    close(sock_listen);
 	    return NULL;
 	}
@@ -649,7 +649,7 @@ void *rigctld_func(void * w)
 	if (select(sock_listen+1, &fds, NULL, NULL, &tv) < 1) continue;
 	sock=accept(sock_listen, (struct sockaddr *)&cli_addr, &clilen);
 	if (sock < 0) continue;
-        TRACE("RIGCTLD: start server socket fd=%d\n",sock);
+        MYTRACE("RIGCTLD: start server socket fd=%d\n",sock);
 	//
 	// Spawn a thread which listens to this socket and serves the client.
 	// Important: since we keep not track of the threads created here, put

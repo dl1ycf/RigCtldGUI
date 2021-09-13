@@ -119,9 +119,6 @@ extern "C" int  get_mode();
 extern "C" void set_rfpower(int);
 extern "C" int  get_rfpower();
 
-extern "C" double get_freq();
-extern "C" int    get_ptt();
-
 extern "C" void set_ptt(int);
 extern "C" void init_riglist();
 extern "C" int  get_numrigs();
@@ -136,17 +133,12 @@ void do_cw(Fl_Widget *, void *);
 
 void do_cwtxt(Fl_Widget *, void *);
 void do_cwinp(Fl_Widget *, void *);
-void do_modeinp(Fl_Widget *, void *);
 void cw_txtout(char *, int);
 
 
 void do_text (Fl_Widget *, void *);
 void do_voice(Fl_Widget *, void *);
 void do_tune (Fl_Widget *, void *);
-void do_mldx (Fl_Widget *, void *);
-static int mldx_flag=1;
-static int can_mldx=0;
-static double mldx_last_freq = -1.0;
 void do_setcw(Fl_Widget *, void *);
 void do_setvoice(Fl_Widget *, void *);
 void do_saveprefs(Fl_Widget *, void *);
@@ -162,7 +154,6 @@ void choose_ptt(Fl_Widget *, void *);
 void choose_baud(Fl_Widget *, void *);
 void choose_sound(Fl_Widget *, void *);
 void do_tone(int,int);
-void update_freq(void *);
 
 void open_rig(Fl_Widget *, void*);
 
@@ -189,7 +180,6 @@ static Fl_Button *pow1, *pow2, *pow3, *pow4, *pow5;
 static Fl_Button *speed1, *speed2, *speed3, *speed4, *speed5;
 static Fl_Button *mode1, *mode2, *mode3, *mode4, *mode5;
 static Fl_Button *tune1, *tune2, *tune3, *tune4, *tune5;
-static Fl_Output *freq;
 static Fl_Text_Display *cwsnt;
 static Fl_Text_Buffer *cwsntbuf;
 static Fl_Input *cwinp,*mode;
@@ -284,12 +274,6 @@ int main(int argc, char **argv) {
   char filename[PATH_MAX];
   struct stat statbuf;
 
-  //
-  // Determine if we run on Mac OS and have MacLoggerDX present
-  // In this case, /Applications/MacLoggerDX.app and /usr/bin/open should be
-  // present
-  //
-  can_mldx = (stat("/Applications/MacLoggerDX.app",&statbuf) == 0)  &&  (stat("/usr/bin/open", &statbuf) == 0);
   Fl::event_dispatch(myHandler);
   // obtain $HOME/.rigcontrol dir
   strcpy(workdir,".");
@@ -478,25 +462,6 @@ int main(int argc, char **argv) {
   Volume->callback(do_volume, NULL);
   Volume->value(0.5);
 
-  Fl_Box *lab8  = new Fl_Box(340,310,80,20,"Rig Frequency");
-  lab8->box(FL_FLAT_BOX);
-  lab8->labelfont(FL_BOLD);
-  lab8->labelsize(14);
-  Fl_Box *lab9  = new Fl_Box(450,310,50,20,"Mode");
-  lab9->box(FL_FLAT_BOX);
-  lab9->labelfont(FL_BOLD);
-  lab9->labelsize(14);
-
-  freq = new Fl_Output(320,330, 120, 30, ""); freq->textsize(24); freq->textcolor(4); freq->textfont(FL_COURIER+FL_BOLD);
-  mode = new Fl_Input (445,330,  60, 30, ""); mode->textsize(20); mode->textcolor(4); mode->textfont(FL_COURIER+FL_BOLD);
-  mode->callback(do_modeinp, NULL);
-  mode->when(FL_WHEN_ENTER_KEY_ALWAYS);
-
-  if (can_mldx) {
-    Fl_Button *mldx = new Fl_Button(320, 280, 180, 20, "Tell MacLoggerDX"); mldx->type(FL_TOGGLE_BUTTON); mldx->color(7,2); mldx->callback(do_mldx, NULL);
-    mldx->value(mldx_flag);
-  }
-
   Fl_Button *setcw    = new Fl_Button(320, 400, 120, 20, "Set CW texts");    setcw->callback(do_setcw, NULL);
   Fl_Button *setvoice = new Fl_Button(320, 430, 120, 20, "Set voice files"); setvoice->callback(do_setvoice, NULL);
   Fl_Button *saveprefs= new Fl_Button(320, 460, 120, 20, "Save settings");   saveprefs->callback(do_saveprefs, NULL);
@@ -640,7 +605,6 @@ int main(int argc, char **argv) {
   window->end();
   window->show(argc, argv);
 
-  Fl::add_timeout(2.0, update_freq, NULL);
   Fl::run();
 
   //
@@ -1174,16 +1138,6 @@ int line,pos,p1,p2,i;
     }
 }
 
-void do_modeinp(Fl_Widget *w, void *data)
-{
-   // Triggered when ENTER is hit in the mode field
-   // Convert input field to upper case
-    char *val = (char *) (((Fl_Input *) w)->value());
-    while (*val) { *val=toupper(*val); val++; }
-    // This triggers sending the changed mode
-    mldx_last_freq=-1.0;
-}
-
 void do_cwinp(Fl_Widget *w, void* data )
 {
     char buffer[128];
@@ -1225,12 +1179,6 @@ void do_volume(Fl_Widget *w, void *)
   // 0.0 --> -40dB = 0.01
   // 1.0 -->   0dB = 1.0
   master_volume=(double) pow(10.0,2.0*(val-1));
-}
-
-void do_mldx(Fl_Widget *w, void *)
-{
-    mldx_flag= ((Fl_Button *) w)->value();
-    mldx_last_freq=-1.0;
 }
 
 void apply_cw(Fl_Widget *w, void *) {
@@ -1373,84 +1321,4 @@ void do_setcw(Fl_Widget *w, void *)
 
     set_cw_win->label("Enter labels and texts for CW buttons");
     set_cw_win->show();
-}
-
-void update_freq(void *)
-{
-    double f;
-    char str[256];
-    pid_t pid;
-    int   stat;
-    int   ptt;
-    int   doit;
-    int   m;
-    char  *p;
-
-//
-//  if we are tuning,  just return (do not track mode and power since it is temporarily
-//  changed)
-//
-    if (event_pass == 1) {
-      ptt=get_ptt();
-      f=get_freq() / 1000000.0;  // in MHz
-      if (ptt == 0) ptt=get_ptt(); // ptt==0 means PTT_OFF before and after frequency readout
-      sprintf(str,"%8.3f", f);
-      freq->value(str);
-      if (can_mldx) {
-        //
-        // Only MacOS:
-        // ===========
-        // push freq and mode data to MLDX if requested
-        // but do not push data do MLDX when transmitting (so the frequency may be
-        // different from the RX frequency).
-        // 
-        // If we CANNOT GET THE PTT STATUS and if the frequency change is less than 3 kHz,
-        // this is possibly a split-tx freq and no frequency is reported to MLDX.
-        // REASON: do not overwrite the MODE field when you are filling out the logbook
-        // entry while TXing.
-        //
-        // If the PTT state can be determined, we send frequency information only if
-        // PTT was OFF before and after the frequency readout.
-        //
-        doit = mldx_flag;
-        if (ptt < 0) doit = doit && (fabs(f-mldx_last_freq) > 0.003);    // Cannot get PTT
-        if (ptt == 0) doit = doit && (fabs(f-mldx_last_freq) > 0.001);   // we are in RX mode
-        if (ptt == 1) doit = 0;                                          // possibly in TX mode
-        if (doit) {
-      	  mldx_last_freq=f;
-  	  sprintf(str,"mldx://tune?freq=%0.3f",f);
-          p=(char *)mode->value();
-          if (strlen(p) > 0) {
-            strcat(str,"&mode=");
-            strcat(str,p);
-          }
-	  pid=fork();
-          if (pid == 0) {
-	    // Child process.
-	    execl("/usr/bin/open","open","-g",str,NULL);
-	    // NOTREACHED, but PARANOIA
-	    (void) exit(0);
-	  }
-	  // Forking process. Wait for child to terminate
-	  waitpid(pid, &stat, 0);
-        }
-      }
-      // track the mode of the rig and set mode button accordingly
-      m=get_mode();
-      mode1->value(0);
-      mode2->value(0);
-      mode3->value(0);
-      mode4->value(0);
-      mode5->value(0);
-      switch (m) {
-        case 0: mode1->value(1); break;
-        case 1: mode2->value(1); break;
-        case 2: mode3->value(1); break;
-        case 3: mode4->value(1); break;
-        case 4: mode5->value(1); break;
-      }
-    }
-    // Repeat this every 2 seconds. Note that get_freq(), get_ptt(),  get_mode()
-    // may have to wait for the hamlib mutex.
-    Fl::repeat_timeout(2.0, update_freq, NULL);
 }

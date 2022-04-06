@@ -60,8 +60,6 @@ clean:
 ####################################################################
 app:  RigCtl
 	@echo Creating AppBundle ....
-	@rm -f $(HOME)/bin/RigCtl
-	@cp RigCtl $(HOME)/bin/RigCtl
 	@rm -rf RigCtl.app
 	@mkdir RigCtl.app
 	@mkdir -p RigCtl.app/Contents/MacOS

@@ -375,8 +375,8 @@ int main(int argc, char **argv) {
   Fl_Group *g1 = new Fl_Group(440,100,80,240);
   pow1 = new Fl_Button(460,130,  40, 20, "  5"); pow1->type(FL_RADIO_BUTTON);  pow1->color(7,5); pow1->callback(do_pow, (void*)   5);
   pow2 = new Fl_Button(460,160,  40, 20, " 10"); pow2->type(FL_RADIO_BUTTON);  pow2->color(7,5); pow2->callback(do_pow, (void*)  10);
-  pow3 = new Fl_Button(460,190,  40, 20, " 20"); pow3->type(FL_RADIO_BUTTON);  pow3->color(7,5); pow3->callback(do_pow, (void*)  20);
-  pow4 = new Fl_Button(460,220,  40, 20, " 30"); pow4->type(FL_RADIO_BUTTON);  pow4->color(7,5); pow4->callback(do_pow, (void*)  30);
+  pow3 = new Fl_Button(460,190,  40, 20, " 25"); pow3->type(FL_RADIO_BUTTON);  pow3->color(7,5); pow3->callback(do_pow, (void*)  25);
+  pow4 = new Fl_Button(460,220,  40, 20, " 50"); pow4->type(FL_RADIO_BUTTON);  pow4->color(7,5); pow4->callback(do_pow, (void*)  50);
   pow5 = new Fl_Button(460,250,  40, 20, "100"); pow5->type(FL_RADIO_BUTTON);  pow5->color(7,5); pow5->callback(do_pow, (void*) 100);
   g1->end();
 
@@ -1012,7 +1012,7 @@ void open_rig(Fl_Widget *w, void *)
 	    else if (val <= 49) { set_rfpower( 30); pow4->value(1); }
             else                { set_rfpower(100); pow5->value(1); }
 	    //
- 	    // Make label of first button and set default speed (21 wpm)
+ 	    // Make label of first button and set default speed
             //
  	    if (wkeymode == 2) {
 		speed1->label("Pot");
@@ -1022,9 +1022,15 @@ void open_rig(Fl_Widget *w, void *)
 	    speed1->value(0);
 	    speed2->value(0);
 	    speed3->value(0);
-	    speed4->value(1);
+	    speed4->value(0);
 	    speed5->value(0);
-	    set_cwspeed(21);
+            if (wkeymode == 2) {
+	      speed1->value(1);
+	      set_cwspeed(0);  // this respects the speed pot
+            } else {
+	      speed4->value(1);
+	      set_cwspeed(21);
+            }
             //
             // Upon each sucessful connection to a rig,
 	    // save the parameters

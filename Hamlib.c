@@ -537,15 +537,29 @@ void *rigctld_serve(void * w)
 			     &ext_resp,		// constant
 			     &resp_sep,    	// constant
                              0);                // use password
-            MYDEBUG("RIGCTLD: Hamlib execution finished\n");
+            MYDEBUG("RIGCTLD: Hamlib execution finished, ret=%d\n",ret);
             fclose(fpin);
             fclose(fpout);
         }
         if (pthread_mutex_unlock(&rigctld_mutex)) perror("RIGCTLD: mutex unlock:");
+
         //
         // quit if error, empty line, of "q" command. Then there is no response
         //
-        if (ret < 0 || ret == 1) {
+        switch (ret)  {
+          case 1:  // "q" command
+	    ret = -1;
+            break;
+          case -RIG_EDEPRECATED:
+          case -RIG_EINVAL:
+          case -RIG_ENIMPL:
+            //
+            // These "errors" should not lead to closing the connection
+	    ret = 0;
+            break;
+        }  
+        
+        if (ret < 0) {
 	    MYTRACE("RIGCTLD: stopping  server, socket fd=%d\n",sock);
 	    close(sock);
 	    return NULL;

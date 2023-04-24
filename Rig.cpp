@@ -198,7 +198,7 @@ void get_token(FILE *fp, char *token, int ltoken, char *label, int llabel)
     if ( i<=0 ) return;
     if (llabel == 0) {
       if (i > 0 && i < ltoken) {
-        sprintf(token, "%s", cp);
+        snprintf(token, ltoken, "%s", cp);
       }
       return;
     }
@@ -280,7 +280,7 @@ int main(int argc, char **argv) {
   cp=getenv("HOME");
   if (cp) {
       // look if $HOME/.rigcontrol exists, otherwise make it
-      sprintf(filename,"%s/.rigcontrol",cp);
+      snprintf(filename,PATH_MAX,"%s/.rigcontrol",cp);
       if (stat(filename, &statbuf) != 0) {
         if (mkdir(filename,0755) == 0) strcpy(workdir,filename);
       } else {
@@ -291,7 +291,7 @@ int main(int argc, char **argv) {
   //
   // load CW labels/texts from workspace
   //
-  sprintf(filename,"%s/CWTXT",workdir);
+  snprintf(filename,PATH_MAX,"%s/CWTXT",workdir);
   fp=fopen(filename,"r");
   if (fp) {
     fprintf(stderr,"Importing CW texts/labels\n");
@@ -305,7 +305,7 @@ int main(int argc, char **argv) {
   //
   // load default values from local prefs file
   //
-  sprintf(filename,"%s/Prefs",workdir);
+  snprintf(filename,PATH_MAX,"%s/Prefs",workdir);
   fp=fopen(filename,"r");
   if (fp) {
     fprintf(stderr,"Importing default values\n");
@@ -321,7 +321,7 @@ int main(int argc, char **argv) {
   //
   // load filename for voice keyer from local file
   //
-  sprintf(filename,"%s/VOICES",workdir);
+  snprintf(filename,PATH_MAX,"%s/VOICES",workdir);
   fp=fopen(filename,"r");
   if (fp) {
     fprintf(stderr,"Importing voices\n");
@@ -514,7 +514,7 @@ int main(int argc, char **argv) {
   AddToChoice(WinKey,    defwky); mywkydev=WinKey->value();
 
   for (i=0; i<numbaud; i++) {
-    sprintf(str,"%d",baudrates[i]);
+    snprintf(str,20,"%d",baudrates[i]);
     BaudRate->add(str);
   }
   BaudRate->value(0);  mybaud=0;
@@ -1243,7 +1243,7 @@ void do_saveprefs(Fl_Widget *w, void*) {
 //
 // save current status to "Prefs" file
 //
-  sprintf(filename,"%s/Prefs",workdir);
+  snprintf(filename,PATH_MAX,"%s/Prefs",workdir);
   fp=fopen(filename,"w");
   if (fp) {
      fprintf(fp,"%s\n",mycall);
@@ -1258,7 +1258,7 @@ void do_saveprefs(Fl_Widget *w, void*) {
 //
 // Save current CW texts to CWTXT file
 //
-  sprintf(filename,"%s/CWTXT",workdir);
+  snprintf(filename,PATH_MAX,"%s/CWTXT",workdir);
   fp=fopen(filename,"w");
   if (fp) {
     fprintf(fp,"%s:%s\n",cwlab1,cwtxt1);
@@ -1271,7 +1271,7 @@ void do_saveprefs(Fl_Widget *w, void*) {
 //
 // Save current samples to VOICES file
 //
-  sprintf(filename,"%s/VOICES",workdir);
+  snprintf(filename,PATH_MAX,"%s/VOICES",workdir);
   fp=fopen(filename,"w");
   if (fp) {
     fprintf(fp,"%s:%s\n",voicelab1,wav[0].filename);

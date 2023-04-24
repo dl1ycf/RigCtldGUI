@@ -534,8 +534,9 @@ void *rigctld_serve(void * w)
 			     0,			// prompt
 			     &vfo_opt,		// vfo_opt
 			     send_cmd_term,	// send_cmd_term
-			     &ext_resp,		// unused
-			     &resp_sep);    	// unused
+			     &ext_resp,		// constant
+			     &resp_sep,    	// constant
+                             0);                // use password
             MYDEBUG("RIGCTLD: Hamlib execution finished\n");
             fclose(fpin);
             fclose(fpout);
@@ -572,7 +573,7 @@ void *rigctld_func(void * w)
     struct addrinfo hints;
     struct addrinfo *result;
     const char *portno = "4532";
-    const char *src_addr = "localhost";
+    const char *src_addr = NULL; /* INADDR_ANY */
     int sock_listen;
     int sockopt;
     int sock;
@@ -644,8 +645,8 @@ void *rigctld_func(void * w)
 	// wait for connection via select() such that we can check for thread termination
 	FD_ZERO(&fds);
 	FD_SET(sock_listen, &fds);
-	tv.tv_sec=0;
-	tv.tv_usec=250000;
+	tv.tv_sec=1;
+	tv.tv_usec=0;
 	if (select(sock_listen+1, &fds, NULL, NULL, &tv) < 1) continue;
 	sock=accept(sock_listen, (struct sockaddr *)&cli_addr, &clilen);
 	if (sock < 0) continue;
@@ -655,7 +656,7 @@ void *rigctld_func(void * w)
 	// Important: since we keep not track of the threads created here, put
 	// them in a DETACHED state so we need not JOIN them.
 
-	if(pthread_attr_init(&attr))                                    perror("RIGCTLD:serve:nit\n");
+	if(pthread_attr_init(&attr))                                    perror("RIGCTLD:serve:init\n");
 	if(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) perror("RIGCTLD:serve:DETACH\n");
 	if(pthread_create(&thread, &attr, rigctld_serve, &sock))        perror("RIGCTLD:serve:create\n");
 

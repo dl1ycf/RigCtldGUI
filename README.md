@@ -5,21 +5,25 @@ This program is based on the "hamlib" rig control library. Since parts of the co
 for example the file rigctl_parse.c and some others, are copied from Hamlib, this program
 will only compile and link well with a specific version of Hamlib present on your system.
 
-So this program requires the release version Hamlib4.0 to be present
---------------------------------------------------------------------
+Currently, this is meant to work with Hamlib 4.5.4
+---------------------------------------------------
 
-To facilitate this, a complete Hamlib4.0 source code tree is deposited here,
-see file "Hamlib4.0_fixed.tar.gz". However you can easily get a source code
-tree from the internet using the commands
+The "step" to Hamlib version 4.5.4 was necessary since my logbook program on my
+Apple Macintosh (MacLogger DX) supports connecting to a rigctld daemon, but
+this has been tested by the MLDX developer for Hamlib 4.5.4.
+
+You can easily get a source code tree from the internet using the commands
 
 ````
   cd <where you want to create the hamlib tree>
   git clone https://github.com/hamlib/hamlib
   cd hamlib
-  git checkout tags/4.0
+  git checkout 4.5.4
 ````
 
 The program is essentially a "rigctld" daemon with a small graphical user interface.
+This allows to have several clients (e.g. a logbook program and a digimode program)
+to connect to the rig which only offers a single connection through a serial or USB cable.
 
 What is currently implemented is
 
@@ -31,24 +35,27 @@ What is currently implemented is
 - send single-tone and two-tone signal
 - go to "TUNE" mode with 10 or 25 watt
 
-Since this is functionally more or less equivalent to a "rigctld" daemon,
-you can control your radio by other programs such as fldigi, wsjtx etc. that use
-hamlib. To this end, in wsjtx/fldigi choose
-"Hamlib NET rigctl" as the radio and for the interface, choose :4532 (that is,
+To connect to the rig via this program choose
+"Hamlib NET rigctl" as the radio (in the digimode or logbook program) and for the interface, choose
+one of the following possibilities
+
+  :4532
+  localhost:4532
+  127.0.0.1:4532
+
+(one of those is usually the default, that is,
 TCP port 4532 on the local computer). So the digimode program(s) communicates with
-the rig controller which in turn communicates with the radio.
+the rig controller which in turn communicates with the radio. It is also possible
+that a connection from another computer takes place.
 
 This way, you can, for example, run a digimode program and change the RF output power
 by clicking the appropriate button on this GUI, it is also possible to connect from
-several programs (say, wsjtx and fldigi) to your rig at the same time.
+several programs (say, fldigi and a logbook program) to your rig at the same time.
 
 The graphical user interface uses the FLTK library, so a "devel" version of FLTK
-(version 1.3) must be installed, as well as a "devel" version of Hamlib (release
-version 4.0) such that e.g. hamlib include files
-
-#include <hamlib/rig.h>
-
-are found.
+(version 1.3) must be installed. For Hamlib, it is usually preferred to get
+the source code from github and compile/install it, since the hamlib versions in
+the standard repositories lag behind.
 
 There is a (preliminary) small documentation in the files
 

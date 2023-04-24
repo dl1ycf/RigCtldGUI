@@ -1,4 +1,10 @@
 /*
+ * File taken from HAMLIB repository, file
+ * src/sprintflst.h
+ */
+
+
+/*
  *  Hamlib Interface - sprintf toolbox header
  *  Copyright (c) 2003-2008 by Stephane Fillod
  *
@@ -25,30 +31,34 @@
 #include <hamlib/rig.h>
 #include <hamlib/rotator.h>
 
-#define SPRINTF_MAX_SIZE 512
+#define SPRINTF_MAX_SIZE 1024
 
 __BEGIN_DECLS
 
-extern int rig_sprintf_mode(char *str, rmode_t mode);
-extern int rig_sprintf_vfo(char *str, vfo_t vfo);
-extern int rig_sprintf_ant(char *str, ant_t ant);
-extern int rig_sprintf_func(char *str, setting_t func);
-extern int rot_sprintf_func(char *str, setting_t func);
-extern int rig_sprintf_level(char *str, setting_t level);
-extern int rot_sprintf_level(char *str, setting_t level);
-extern int amp_sprintf_level(char *str, setting_t level);
-extern int sprintf_level_ext(char *str, const struct confparams *extlevels);
-extern int rig_sprintf_level_gran(char *str, setting_t level, const gran_t *gran);
-extern int rot_sprintf_level_gran(char *str, setting_t level, const gran_t *gran);
-extern int rig_sprintf_parm(char *str, setting_t parm);
-extern int rot_sprintf_parm(char *str, setting_t parm);
-extern int rig_sprintf_parm_gran(char *str, setting_t parm, const gran_t *gran);
-extern int rot_sprintf_parm_gran(char *str, setting_t parm, const gran_t *gran);
-extern int rig_sprintf_vfop(char *str, vfo_op_t op);
-extern int rig_sprintf_scan(char *str, scan_t rscan);
-extern int rot_sprintf_status(char *str, rot_status_t status);
-extern char *get_rig_conf_type(enum rig_conf_e type);
-int print_ext_param(const struct confparams *cfp, rig_ptr_t ptr);
+extern HAMLIB_EXPORT( int ) rig_sprintf_mode(char *str, int len, rmode_t mode);
+extern HAMLIB_EXPORT( int ) rig_sprintf_vfo(char *str, int len, vfo_t vfo);
+extern HAMLIB_EXPORT( int ) rig_sprintf_ant(char *str, int len, ant_t ant);
+extern HAMLIB_EXPORT( int ) rig_sprintf_func(char *str, int len, setting_t func);
+extern HAMLIB_EXPORT( int ) rig_sprintf_agc_levels(RIG *rig, char *str, int len);
+extern HAMLIB_EXPORT( int ) rot_sprintf_func(char *str, int len, setting_t func);
+extern HAMLIB_EXPORT( int ) rig_sprintf_level(char *str, int len, setting_t level);
+extern HAMLIB_EXPORT( int ) rot_sprintf_level(char *str, int len, setting_t level);
+extern HAMLIB_EXPORT( int ) amp_sprintf_level(char *str, int len, setting_t level);
+extern HAMLIB_EXPORT( int ) sprintf_level_ext(char *str, int len, const struct confparams *extlevels);
+extern HAMLIB_EXPORT( int ) rig_sprintf_level_gran(char *str, int len, setting_t level, const gran_t *gran);
+extern HAMLIB_EXPORT( int ) rot_sprintf_level_gran(char *str, int len, setting_t level, const gran_t *gran);
+extern HAMLIB_EXPORT( int ) rig_sprintf_parm(char *str, int len, setting_t parm);
+extern HAMLIB_EXPORT( int ) rot_sprintf_parm(char *str, int len, setting_t parm);
+extern HAMLIB_EXPORT( int ) rig_sprintf_parm_gran(char *str, int len, setting_t parm, const gran_t *gran);
+extern HAMLIB_EXPORT( int ) rot_sprintf_parm_gran(char *str, int len, setting_t parm, const gran_t *gran);
+extern HAMLIB_EXPORT( int ) rig_sprintf_vfop(char *str, int len, vfo_op_t op);
+extern HAMLIB_EXPORT( int ) rig_sprintf_scan(char *str, int len, scan_t rscan);
+extern HAMLIB_EXPORT( int ) rot_sprintf_status(char *str, int len, rot_status_t status);
+extern HAMLIB_EXPORT( int ) rig_sprintf_spectrum_modes(char *str, int nlen, const enum rig_spectrum_mode_e *modes);
+extern HAMLIB_EXPORT( int ) rig_sprintf_spectrum_spans(char *str, int nlen, const freq_t *spans);
+extern HAMLIB_EXPORT( int )  rig_sprintf_spectrum_avg_modes(char *str, int nlen, const struct rig_spectrum_avg_mode *avg_modes);
+extern HAMLIB_EXPORT( char *) get_rig_conf_type(enum rig_conf_e type);
+extern HAMLIB_EXPORT( int ) print_ext_param(const struct confparams *cfp, rig_ptr_t ptr);
 
 __END_DECLS
 

@@ -1,4 +1,9 @@
 /*
+ * Copied from HAMLIB repository, file
+ * tests/rigctl_parse.h
+ */
+
+/*
  * rigctl_parse.h - (C) Stephane Fillod 2000-2010
  *
  * This program test/control a radio using Hamlib.
@@ -28,6 +33,9 @@
 #include <stdio.h>
 #include <hamlib/rig.h>
 
+#define RIGCTL_PARSE_END 1
+#define RIGCTL_PARSE_ERROR 2
+
 /*
  * external prototype
  */
@@ -48,6 +56,6 @@ int set_conf(RIG *my_rig, char *conf_parms);
 typedef void (*sync_cb_t)(int);
 int rigctl_parse(RIG *my_rig, FILE *fin, FILE *fout, char *argv[], int argc, sync_cb_t sync_cb,
                  int interactive, int prompt, int * vfo_mode, char send_cmd_term,
-                 int * ext_resp_ptr, char * resp_sep_ptr);
+                 int * ext_resp_ptr, char * resp_sep_ptr, int use_password);
 
 #endif  /* RIGCTL_PARSE_H */

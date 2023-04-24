@@ -1,4 +1,9 @@
 /*
+ * File taken from HAMLIB repository, file
+ * tests/uthash.h
+ */
+
+/*
 Copyright (c) 2003-2011, Troy D. Hanson     http://uthash.sourceforge.net
 All rights reserved.
 

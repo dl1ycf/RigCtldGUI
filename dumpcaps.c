@@ -1,4 +1,12 @@
 /*
+ * File taken from HAMLIB repository, file tests/dumpcaps.c,
+ * with the following modifications:
+ *
+ * #include ""../rigs/icom/icom.h" ==> #include "icom.h"
+ *
+ */
+
+/*
  * dumpcaps.c - Copyright (C) 2000-2012 Stephane Fillod
  * This programs dumps the capabilities of a backend rig.
  *
@@ -19,24 +27,47 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include <hamlib/config.h>
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 #include <hamlib/rig.h>
 #include "misc.h"
 
 #include "sprintflst.h"
 #include "rigctl_parse.h"
+#include "icom.h"
 
 void range_print(FILE *fout, const struct freq_range_list range_list[], int rx);
 int range_sanity_check(const struct freq_range_list range_list[], int rx);
 int ts_sanity_check(const struct tuning_step_list tuning_step[]);
 static void dump_chan_caps(const channel_cap_t *chan, FILE *fout);
+
+struct rig_type_s
+{
+    int type;
+    char *description;
+};
+
+struct rig_type_s rig_type[] =
+{
+    {RIG_TYPE_OTHER, "Other"},
+    {RIG_FLAG_RECEIVER, "Receiver"},
+    {RIG_FLAG_TRANSMITTER, "Transmitter"},
+    {RIG_FLAG_SCANNER, "Scanner"},
+    {RIG_FLAG_MOBILE, "Mobile"},
+    {RIG_FLAG_HANDHELD, "Handheld"},
+    {RIG_FLAG_COMPUTER, "Computer"},
+    {RIG_FLAG_TRANSCEIVER, "Transceiver"},
+    {RIG_FLAG_TRUNKING, "Trunking scanner"},
+    {RIG_FLAG_APRS, "APRS"},
+    {RIG_FLAG_TNC, "TNC"},
+    {RIG_FLAG_DXCLUSTER, "DxCluster"},
+    {RIG_FLAG_DXCLUSTER, "DxCluster"},
+    {RIG_FLAG_TUNER, "Tuner"},
+    {-1, "?\n"}
+};
 
 static int print_ext(RIG *rig, const struct confparams *cfp, rig_ptr_t ptr)
 {
@@ -53,9 +84,13 @@ int dumpcaps(RIG *rig, FILE *fout)
     int can_esplit, can_echannel;
     char freqbuf[20];
     int backend_warnings = 0;
-    static char prntbuf[1024];  /* a malloc would be better.. */
+    char warnbuf[4096];
+    char prntbuf[1024];  /* a malloc would be better.. */
     char *label1, *label2, *label3, *label4, *label5;
     char *labelrx1; // , *labelrx2, *labelrx3, *labelrx4, *labelrx5;
+
+    warnbuf[0] = 0;
+    prntbuf[0] = 0;
 
     if (!rig || !rig->caps)
     {
@@ -72,50 +107,22 @@ int dumpcaps(RIG *rig, FILE *fout)
     fprintf(fout, "Backend status:\t%s\n", rig_strstatus(caps->status));
     fprintf(fout, "Rig type:\t");
 
-    switch (caps->rig_type & RIG_TYPE_MASK)
+    char *unknown = "Unknown";
+
+    for (i = 0; rig_type[i].type != -1; ++i)
     {
-    case RIG_TYPE_TRANSCEIVER:
-        fprintf(fout, "Transceiver\n");
-        break;
+        if ((rig_type[i].type & caps->rig_type) == rig_type[i].type)
+        {
+            fprintf(fout, "%s ", rig_type[i].description);
+            unknown = "";
+        }
+    }
 
-    case RIG_TYPE_HANDHELD:
-        fprintf(fout, "Handheld\n");
-        break;
+    fprintf(fout, "%s\n", unknown);
 
-    case RIG_TYPE_MOBILE:
-        fprintf(fout, "Mobile\n");
-        break;
-
-    case RIG_TYPE_RECEIVER:
-        fprintf(fout, "Receiver\n");
-        break;
-
-    case RIG_TYPE_PCRECEIVER:
-        fprintf(fout, "PC Receiver\n");
-        break;
-
-    case RIG_TYPE_SCANNER:
-        fprintf(fout, "Scanner\n");
-        break;
-
-    case RIG_TYPE_TRUNKSCANNER:
-        fprintf(fout, "Trunking scanner\n");
-        break;
-
-    case RIG_TYPE_COMPUTER:
-        fprintf(fout, "Computer\n");
-        break;
-
-    case RIG_TYPE_TUNER:
-        fprintf(fout, "Tuner\n");
-        break;
-
-    case RIG_TYPE_OTHER:
-        fprintf(fout, "Other\n");
-        break;
-
-    default:
-        fprintf(fout, "Unknown\n");
+    if (strlen(unknown) > 0)
+    {
+        strcat(warnbuf, " RIG_TYPE");
         backend_warnings++;
     }
 
@@ -149,6 +156,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     default:
         fprintf(fout, "Unknown\n");
+        strcat(warnbuf, " PTT_TYPE");
         backend_warnings++;
     }
 
@@ -182,6 +190,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     default:
         fprintf(fout, "Unknown\n");
+        strcat(warnbuf, " DCD_TYPE");
         backend_warnings++;
     }
 
@@ -232,6 +241,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     default:
         fprintf(fout, "Unknown\n");
+        strcat(warnbuf, " PORT_TYPE");
         backend_warnings++;
     }
 
@@ -247,8 +257,8 @@ int dumpcaps(RIG *rig, FILE *fout)
             caps->targetable_vfo ? "Y" : "N");
 
     fprintf(fout,
-            "Has transceive: %s\n",
-            caps->transceive ? "Y" : "N");
+            "Has async data support: %s\n",
+            caps->async_data_supported ? "Y" : "N");
 
     fprintf(fout, "Announce: 0x%x\n", caps->announces);
     fprintf(fout,
@@ -268,7 +278,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     fprintf(fout, "Preamp:");
 
-    for (i = 0; i < MAXDBLSTSIZ && caps->preamp[i] != 0; i++)
+    for (i = 0; i < HAMLIB_MAXDBLSTSIZ && caps->preamp[i] != 0; i++)
     {
         fprintf(fout, " %ddB", caps->preamp[i]);
     }
@@ -281,7 +291,7 @@ int dumpcaps(RIG *rig, FILE *fout)
     fprintf(fout, "\n");
     fprintf(fout, "Attenuator:");
 
-    for (i = 0; i < MAXDBLSTSIZ && caps->attenuator[i] != 0; i++)
+    for (i = 0; i < HAMLIB_MAXDBLSTSIZ && caps->attenuator[i] != 0; i++)
     {
         fprintf(fout, " %ddB", caps->attenuator[i]);
     }
@@ -289,6 +299,47 @@ int dumpcaps(RIG *rig, FILE *fout)
     if (i == 0)
     {
         fprintf(fout, " None");
+    }
+
+    fprintf(fout, "\n");
+
+
+    fprintf(fout, "AGC levels:");
+    const struct icom_priv_caps *priv_caps =
+        (const struct icom_priv_caps *) rig->caps->priv;
+
+    if (priv_caps && RIG_BACKEND_NUM(rig->caps->rig_model) == RIG_ICOM
+            && priv_caps->agc_levels_present)
+    {
+        for (i = 0; i <= RIG_AGC_LAST && priv_caps->agc_levels[i].level != RIG_AGC_LAST
+                && priv_caps->agc_levels[i].icom_level >= 0; i++)
+        {
+            fprintf(fout, " %d=%s", priv_caps->agc_levels[i].level,
+                    rig_stragclevel(priv_caps->agc_levels[i].level));
+        }
+    }
+    else
+    {
+
+        for (i = 0; i < HAMLIB_MAX_AGC_LEVELS && i < caps->agc_level_count; i++)
+        {
+            fprintf(fout, " %d=%s", caps->agc_levels[i],
+                    rig_stragclevel(caps->agc_levels[i]));
+        }
+    }
+
+    fprintf(fout, "\n");
+
+    if (i == 0)
+    {
+        rig_debug(RIG_DEBUG_WARN,
+                  "%s: defaulting to all levels since rig does not have any\n", __func__);
+
+        // Fall back to printing out all levels for backwards-compatibility
+        for (i = RIG_AGC_OFF; i <= RIG_AGC_LAST; i++)
+        {
+            fprintf(fout, " %d=%s", i, rig_stragclevel(i));
+        }
     }
 
     fprintf(fout, "\n");
@@ -331,27 +382,18 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     fprintf(fout, "\n");
 
-    rig_sprintf_func(prntbuf, caps->has_get_func);
+    rig_sprintf_func(prntbuf, sizeof(prntbuf), caps->has_get_func);
     fprintf(fout, "Get functions: %s\n", prntbuf);
 
-    rig_sprintf_func(prntbuf, caps->has_set_func);
+    rig_sprintf_func(prntbuf, sizeof(prntbuf), caps->has_set_func);
     fprintf(fout, "Set functions: %s\n", prntbuf);
 
     fprintf(fout, "Extra functions:\n");
     rig_ext_func_foreach(rig, print_ext, fout);
 
-    rig_sprintf_level_gran(prntbuf, caps->has_get_level, caps->level_gran);
+    rig_sprintf_level_gran(prntbuf, sizeof(prntbuf), caps->has_get_level,
+                           caps->level_gran);
     fprintf(fout, "Get level: %s\n", prntbuf);
-
-/*
- * does no longer exist in Hamlib 4.0
-
-    if ((caps->has_get_level & RIG_LEVEL_SQLSTAT))
-    {
-        fprintf(fout, "Warning--backend uses deprecated SQLSTAT level!\n");
-        backend_warnings++;
-    }
-*/
 
     if ((caps->has_get_level & RIG_LEVEL_RAWSTR)
             && caps->str_cal.size == 0
@@ -360,30 +402,38 @@ int dumpcaps(RIG *rig, FILE *fout)
 
         fprintf(fout,
                 "Warning--backend has get RAWSTR, but not calibration data\n");
+        strcat(warnbuf, " RAWSTR_level");
         backend_warnings++;
     }
 
-    rig_sprintf_level_gran(prntbuf, caps->has_set_level, caps->level_gran);
+    rig_sprintf_level_gran(prntbuf, sizeof(prntbuf), caps->has_set_level,
+                           caps->level_gran);
     fprintf(fout, "Set level: %s\n", prntbuf);
 
     if (caps->has_set_level & RIG_LEVEL_READONLY_LIST)
     {
-        fprintf(fout, "Warning--backend can set readonly levels!\n");
+
+        //fprintf(fout, "Warning--backend can set readonly levels=0x%0llx\n", caps->has_set_level & RIG_LEVEL_READONLY_LIST);
+        fprintf(fout, "Warning--backend can set readonly levels\n");
+        strcat(warnbuf, " READONLY_LEVEL");
         backend_warnings++;
     }
 
     fprintf(fout, "Extra levels:\n");
     rig_ext_level_foreach(rig, print_ext, fout);
 
-    rig_sprintf_parm_gran(prntbuf, caps->has_get_parm, caps->parm_gran);
+    rig_sprintf_parm_gran(prntbuf, sizeof(prntbuf), caps->has_get_parm,
+                          caps->parm_gran);
     fprintf(fout, "Get parameters: %s\n", prntbuf);
 
-    rig_sprintf_parm_gran(prntbuf, caps->has_set_parm, caps->parm_gran);
+    rig_sprintf_parm_gran(prntbuf, sizeof(prntbuf), caps->has_set_parm,
+                          caps->parm_gran);
     fprintf(fout, "Set parameters: %s\n", prntbuf);
 
     if (caps->has_set_parm & RIG_PARM_READONLY_LIST)
     {
         fprintf(fout, "Warning--backend can set readonly parms!\n");
+        strcat(warnbuf, " READONLY_PARM");
         backend_warnings++;
     }
 
@@ -393,11 +443,12 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (rig->state.mode_list != 0)
     {
-        rig_sprintf_mode(prntbuf, rig->state.mode_list);
+        rig_sprintf_mode(prntbuf, sizeof(prntbuf), rig->state.mode_list);
     }
     else
     {
         strcpy(prntbuf, "None. This backend might be bogus!\n");
+        strcat(warnbuf, " MODE_LIST");
         backend_warnings++;
     }
 
@@ -405,20 +456,21 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (rig->state.vfo_list != 0)
     {
-        rig_sprintf_vfo(prntbuf, rig->state.vfo_list);
+        rig_sprintf_vfo(prntbuf, sizeof(prntbuf), rig->state.vfo_list);
     }
     else
     {
         strcpy(prntbuf, "None. This backend might be bogus!\n");
+        strcat(warnbuf, " VFO_LIST");
         backend_warnings++;
     }
 
     fprintf(fout, "VFO list: %s\n", prntbuf);
 
-    rig_sprintf_vfop(prntbuf, caps->vfo_ops);
+    rig_sprintf_vfop(prntbuf, sizeof(prntbuf), caps->vfo_ops);
     fprintf(fout, "VFO Ops: %s\n", prntbuf);
 
-    rig_sprintf_scan(prntbuf, caps->scan_ops);
+    rig_sprintf_scan(prntbuf, sizeof(prntbuf), caps->scan_ops);
     fprintf(fout, "Scan Ops: %s\n", prntbuf);
 
     fprintf(fout, "Number of banks:\t%d\n", caps->bank_qty);
@@ -426,7 +478,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     fprintf(fout, "Memories:");
 
-    for (i = 0; i < CHANLSTSIZ && caps->chan_list[i].type; i++)
+    for (i = 0; i < HAMLIB_CHANLSTSIZ && caps->chan_list[i].type; i++)
     {
         fprintf(fout,
                 "\n\t%d..%d:   \t%s",
@@ -502,6 +554,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#1");
         backend_warnings++;
     }
 
@@ -513,6 +566,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#1");
         backend_warnings++;
     }
 
@@ -524,6 +578,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#2");
         backend_warnings++;
     }
 
@@ -535,6 +590,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#2");
         backend_warnings++;
     }
 
@@ -546,6 +602,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#3");
         backend_warnings++;
     }
 
@@ -557,6 +614,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#3");
         backend_warnings++;
     }
 
@@ -568,6 +626,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#4");
         backend_warnings++;
     }
 
@@ -579,6 +638,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#4");
         backend_warnings++;
     }
 
@@ -590,6 +650,7 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TX#5");
         backend_warnings++;
     }
 
@@ -601,12 +662,13 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " RX#5");
         backend_warnings++;
     }
 
     fprintf(fout, "Tuning steps:");
 
-    for (i = 0; i < TSLSTSIZ && !RIG_IS_TS_END(caps->tuning_steps[i]); i++)
+    for (i = 0; i < HAMLIB_TSLSTSIZ && !RIG_IS_TS_END(caps->tuning_steps[i]); i++)
     {
         if (caps->tuning_steps[i].ts == RIG_TS_ANY)
         {
@@ -614,16 +676,17 @@ int dumpcaps(RIG *rig, FILE *fout)
         }
         else
         {
-            sprintf_freq(freqbuf, caps->tuning_steps[i].ts);
+            sprintf_freq(freqbuf, sizeof(freqbuf), caps->tuning_steps[i].ts);
         }
 
-        rig_sprintf_mode(prntbuf, caps->tuning_steps[i].modes);
+        rig_sprintf_mode(prntbuf, sizeof(prntbuf), caps->tuning_steps[i].modes);
         fprintf(fout, "\n\t%s:   \t%s", freqbuf, prntbuf);
     }
 
     if (i == 0)
     {
         fprintf(fout, " None! This backend might be bogus!");
+        strcat(warnbuf, " TUNING_STEPS");
         backend_warnings++;
     }
 
@@ -633,12 +696,13 @@ int dumpcaps(RIG *rig, FILE *fout)
 
     if (status)
     {
+        strcat(warnbuf, " TUNING_SANE");
         backend_warnings++;
     }
 
     fprintf(fout, "Filters:");
 
-    for (i = 0; i < FLTLSTSIZ && !RIG_IS_FLT_END(caps->filters[i]); i++)
+    for (i = 0; i < HAMLIB_FLTLSTSIZ && !RIG_IS_FLT_END(caps->filters[i]); i++)
     {
         if (caps->filters[i].width == RIG_FLT_ANY)
         {
@@ -646,16 +710,17 @@ int dumpcaps(RIG *rig, FILE *fout)
         }
         else
         {
-            sprintf_freq(freqbuf, caps->filters[i].width);
+            sprintf_freq(freqbuf, sizeof(freqbuf), caps->filters[i].width);
         }
 
-        rig_sprintf_mode(prntbuf, caps->filters[i].modes);
+        rig_sprintf_mode(prntbuf, sizeof(prntbuf), caps->filters[i].modes);
         fprintf(fout, "\n\t%s:   \t%s", freqbuf, prntbuf);
     }
 
     if (i == 0)
     {
         fprintf(fout, " None. This backend might be bogus!");
+        strcat(warnbuf, " FILTERS");
         backend_warnings++;
     }
 
@@ -672,14 +737,54 @@ int dumpcaps(RIG *rig, FILE *fout)
             continue;
         }
 
-        sprintf_freq(freqbuf, pbnorm);
+        sprintf_freq(freqbuf, sizeof(freqbuf), pbnorm);
         fprintf(fout, "\n\t%s\tNormal: %s,\t", rig_strrmode(i), freqbuf);
 
-        sprintf_freq(freqbuf, rig_passband_narrow(rig, i));
+        sprintf_freq(freqbuf, sizeof(freqbuf), rig_passband_narrow(rig, i));
         fprintf(fout, "Narrow: %s,\t", freqbuf);
 
-        sprintf_freq(freqbuf, rig_passband_wide(rig, i));
+        sprintf_freq(freqbuf, sizeof(freqbuf), rig_passband_wide(rig, i));
         fprintf(fout, "Wide: %s", freqbuf);
+    }
+
+    fprintf(fout, "\n");
+
+    fprintf(fout, "Spectrum scopes:");
+
+    for (i = 0; i < HAMLIB_MAX_SPECTRUM_SCOPES
+            && caps->spectrum_scopes[i].name != NULL; i++)
+    {
+        fprintf(fout, " %d=\"%s\"", caps->spectrum_scopes[i].id,
+                caps->spectrum_scopes[i].name);
+    }
+
+    if (i == 0)
+    {
+        fprintf(fout, " None");
+    }
+
+    fprintf(fout, "\n");
+
+    rig_sprintf_spectrum_modes(prntbuf, sizeof(prntbuf), caps->spectrum_modes);
+    fprintf(fout, "Spectrum modes: %s\n", prntbuf);
+
+    rig_sprintf_spectrum_spans(prntbuf, sizeof(prntbuf), caps->spectrum_spans);
+    fprintf(fout, "Spectrum spans: %s\n", prntbuf);
+
+    rig_sprintf_spectrum_avg_modes(prntbuf, sizeof(prntbuf),
+                                   caps->spectrum_avg_modes);
+    fprintf(fout, "Spectrum averaging modes: %s\n", prntbuf);
+
+    fprintf(fout, "Spectrum attenuator:");
+
+    for (i = 0; i < HAMLIB_MAXDBLSTSIZ && caps->spectrum_attenuator[i] != 0; i++)
+    {
+        fprintf(fout, " %ddB", caps->spectrum_attenuator[i]);
+    }
+
+    if (i == 0)
+    {
+        fprintf(fout, " None");
     }
 
     fprintf(fout, "\n");
@@ -834,7 +939,8 @@ int dumpcaps(RIG *rig, FILE *fout)
     fprintf(fout, "Can get power2mW:\t%c\n", caps->power2mW != NULL ? 'Y' : 'N');
     fprintf(fout, "Can get mW2power:\t%c\n", caps->mW2power != NULL ? 'Y' : 'N');
 
-    fprintf(fout, "\nOverall backend warnings: %d\n", backend_warnings);
+    fprintf(fout, "\nOverall backend warnings: %d %c %s\n", backend_warnings,
+            warnbuf[0] != 0 ? '=' : ' ', warnbuf);
 
     return backend_warnings;
 }
@@ -844,7 +950,7 @@ void range_print(FILE *fout, const struct freq_range_list range_list[], int rx)
     int i;
     char prntbuf[1024];  /* a malloc would be better.. */
 
-    for (i = 0; i < FRQRANGESIZ; i++)
+    for (i = 0; i < HAMLIB_FRQRANGESIZ; i++)
     {
         if (range_list[i].startf == 0 && range_list[i].endf == 0)
         {
@@ -855,17 +961,17 @@ void range_print(FILE *fout, const struct freq_range_list range_list[], int rx)
                 range_list[i].endf);
 
         fprintf(fout, "\t\tVFO list: ");
-        rig_sprintf_vfo(prntbuf, range_list[i].vfo);
+        rig_sprintf_vfo(prntbuf, sizeof(prntbuf), range_list[i].vfo);
         fprintf(fout, "%s", prntbuf);
         fprintf(fout, "\n");
 
         fprintf(fout, "\t\tMode list: ");
-        rig_sprintf_mode(prntbuf, range_list[i].modes);
+        rig_sprintf_mode(prntbuf, sizeof(prntbuf), range_list[i].modes);
         fprintf(fout, "%s", prntbuf);
         fprintf(fout, "\n");
 
         fprintf(fout, "\t\tAntenna list: ");
-        rig_sprintf_ant(prntbuf, range_list[i].ant);
+        rig_sprintf_ant(prntbuf, sizeof(prntbuf), range_list[i].ant);
         fprintf(fout, "%s", prntbuf);
         fprintf(fout, "\n");
 
@@ -922,7 +1028,7 @@ int range_sanity_check(const struct freq_range_list range_list[], int rx)
 {
     int i;
 
-    for (i = 0; i < FRQRANGESIZ; i++)
+    for (i = 0; i < HAMLIB_FRQRANGESIZ; i++)
     {
         if (range_list[i].startf == 0 && range_list[i].endf == 0)
         {
@@ -948,7 +1054,8 @@ int range_sanity_check(const struct freq_range_list range_list[], int rx)
         }
         else
         {
-            if (!(range_list[i].low_power > 0 && range_list[i].high_power > 0))
+            if (!(range_list[i].low_power >= RIG_FREQ_NONE
+                    && range_list[i].high_power >= RIG_FREQ_NONE))
             {
                 return -3;
             }
@@ -960,7 +1067,7 @@ int range_sanity_check(const struct freq_range_list range_list[], int rx)
         }
     }
 
-    if (i == FRQRANGESIZ)
+    if (i == HAMLIB_FRQRANGESIZ)
     {
         return -4;
     }
@@ -985,7 +1092,7 @@ int ts_sanity_check(const struct tuning_step_list tuning_step[])
     last_ts = 0;
     last_modes = RIG_MODE_NONE;
 
-    for (i = 0; i < TSLSTSIZ; i++)
+    for (i = 0; i < HAMLIB_TSLSTSIZ; i++)
     {
         if (RIG_IS_TS_END(tuning_step[i]))
         {
@@ -1009,7 +1116,7 @@ int ts_sanity_check(const struct tuning_step_list tuning_step[])
         last_modes = tuning_step[i].modes;
     }
 
-    if (i == TSLSTSIZ)
+    if (i == HAMLIB_TSLSTSIZ)
     {
         return -4;
     }
@@ -1144,6 +1251,7 @@ static void dump_chan_caps(const channel_cap_t *chan, FILE *fout)
 
 int dumpconf(RIG *rig, FILE *fout)
 {
+    fprintf(fout, "model: %s\n", rig->caps->model_name);
     rig_token_foreach(rig, print_conf_list, (rig_ptr_t)rig);
 
     return 0;

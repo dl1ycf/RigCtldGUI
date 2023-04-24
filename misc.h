@@ -1,4 +1,12 @@
-extern HAMLIB_EXPORT(int) sprintf_freq(char *str, freq_t);
+/*
+ * Definitions mostly taken from HAMLIB repository, file
+ * src/misc.h
+ */
+
+extern HAMLIB_EXPORT(int) sprintf_freq(char *str, int str_len, freq_t);
+extern HAMLIB_EXPORT(double) elapsed_ms(struct timespec *start, int start_flag);
+extern HAMLIB_EXPORT (const char *) spaces();
+extern HAMLIB_EXPORT(char *)date_strget(char *buf, int buflen, int localtime);
 
 void dump_hex(const unsigned char ptr[], size_t size);
 
@@ -16,8 +24,27 @@ void dump_hex(const unsigned char ptr[], size_t size);
 #  endif
 #endif
 
-#define ENTERFUNC rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s entered\n", __FILENAME__, __LINE__, __func__)
-#define RETURNFUNC(rc) {rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s return\n", __FILENAME__, __LINE__, __func__);return rc;}
+#define ENTERFUNC {     ++rig->state.depth; \
+                        rig_debug(RIG_DEBUG_VERBOSE, "%.*s%d:%s(%d):%s entered\n", rig->state.depth, spaces(), rig->state.depth, __FILENAME__, __LINE__, __func__); \
+                  }
+#define ENTERFUNC2 {    rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s entered\n", __FILENAME__, __LINE__, __func__); \
+                   }
+
+// we need to refer to rc just once as it 
+// could be a function call  
+
+#define RETURNFUNC(rc) {do { \
+                                    int rctmp = rc; \
+                        rig_debug(RIG_DEBUG_VERBOSE, "%.*s%d:%s(%d):%s returning(%ld) %s\n", rig->state.depth, spaces(), rig->state.depth, __FILENAME__, __LINE__, __func__, (long int) (rctmp), rctmp<0?rigerror2(rctmp):""); \
+                        --rig->state.depth; \
+                        return (rctmp); \
+                       } while(0);}
+#define RETURNFUNC2(rc) {do { \
+                                    int rctmp = rc; \
+                        rig_debug(RIG_DEBUG_VERBOSE, "%s(%d):%s returning2(%ld) %s\n",  __FILENAME__, __LINE__, __func__, (long int) (rctmp), rctmp<0?rigerror2(rctmp):""); \
+                        return (rctmp); \
+                       } while(0);}
+
 
 
 //

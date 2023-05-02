@@ -26,19 +26,41 @@
 #endif
 
 //
-// This is for the rigctld thread that we are going to split off
+// This is for the threads etc. that we split off
 //
 static pthread_t       rigctld_thread;
 static pthread_mutex_t rigctld_mutex = PTHREAD_MUTEX_INITIALIZER;
 void *                 rigctld_func (void *);
+void *                 rigctld_serve(void *);
+
+//
+// This is for the threads generated for each connetion
+// We need to keep track of them since we have to "kill" them
+// since they might get stuck into a syscall
+//
+#define MAX_CLIENT 5
+
+struct _CLIENT {
+  int            id;
+  pthread_t      thread;
+  pthread_attr_t attr;
+  int            sock;
+  FILE           *fsockin;
+  FILE           *fsockout;
+}; 
+
+typedef struct _CLIENT CLIENT;
+
+CLIENT clients[MAX_CLIENT];
 
 // Functions in winkey.c
 extern int  open_winkey_port(const char *);
-extern void close_winkey_port();
+extern void close_winkey_port(void);
 extern void send_winkey(const char *);
 extern void set_winkey_speed(int);
 
 RIG *rig = NULL;
+int  running=0;
 
 int wkeymode=0;   // 0: n/a, 1: CAT,  2: Wkey-Device
 
@@ -51,13 +73,34 @@ static struct rigs {
 } rigs[1000];
 
 //
+// Obtain (flag===1) or release (flag==0) the hamlib mutex
+// This is a function to be passed to rigctl_parse
+//
+void sync_hamlib(int flag) {
+  //
+  // This is *only* called by the rigctl client server threads.
+  // If we arrive here while the rig is being closed, just terminate
+  // the thread
+  //
+  if (!running) pthread_exit(NULL);
+  //
+  if (flag) {
+    // obtain mutex
+    if (pthread_mutex_lock(&rigctld_mutex)) perror("SYNC_HAMLIB_LOCK:");
+  } else {
+    // release mutex
+    if(pthread_mutex_unlock(&rigctld_mutex))  perror("SYNC_HAMLIB_RELEASE:");
+  }
+}
+
+//
 //  return 1 if we can use hamlib, that is:
 //  - rig is defined (non-NULL)
 //  - we have a locked mutex
 //
 int can_hamlib()
 {
-    if (!rig) return 0;
+    if (!rig || !running) return 0;
     if (pthread_mutex_lock(&rigctld_mutex)) perror("CAN_HAMLIB:");
     return 1;
 }
@@ -77,10 +120,10 @@ int get_rfpower()
     unsigned int mwpower=0;
 
     if (can_hamlib()) {
-	rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &val);
-	freq=kHz(14000);
-	rig_power2mW(rig, &mwpower, val.f, freq, RIG_MODE_CW);
-	free_hamlib();
+        rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &val);
+        freq=kHz(14000);
+        rig_power2mW(rig, &mwpower, val.f, freq, RIG_MODE_CW);
+        free_hamlib();
     }
    return mwpower / 1000;
 }
@@ -93,13 +136,13 @@ void set_rfpower(int pow)
     float fpow;
 
     if (can_hamlib()) {
-	fpow=pow;
+        fpow=pow;
         mwpower=1000*pow;
         freq=kHz(14000);
         rig_mW2power(rig, &fpow, mwpower, freq, RIG_MODE_CW);
         val.f=fpow;
         rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, val);
-	free_hamlib();
+        free_hamlib();
     }
 }
 
@@ -133,7 +176,7 @@ void rig_tune(int pow)
             rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, val);
             rig_set_mode(rig,RIG_VFO_CURR,saved_mode,saved_width);
         }
-	free_hamlib();
+        free_hamlib();
     }
 }
 
@@ -143,8 +186,8 @@ void rig_tune(int pow)
 void set_ptt(int ptt)
 {
     if (can_hamlib()) {
-	if (ptt) rig_set_ptt(rig, RIG_VFO_CURR, rigctl_ptt_cmd); else  rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
-	free_hamlib();
+        if (ptt) rig_set_ptt(rig, RIG_VFO_CURR, rigctl_ptt_cmd); else  rig_set_ptt(rig, RIG_VFO_CURR, RIG_PTT_OFF);
+        free_hamlib();
     }
 }
 
@@ -228,24 +271,24 @@ int get_mode()
     int ret=-1;
 
     if (can_hamlib()) {
-	rig_get_mode(rig, RIG_VFO_CURR, &mode, &width);
-	switch (mode) {
-	    case RIG_MODE_RTTY:
-	    case RIG_MODE_RTTYR:
-	    case RIG_MODE_CWR:
-	    case RIG_MODE_CW    : ret=0; break;
-	    case RIG_MODE_PKTLSB:
-	    case RIG_MODE_LSB   : ret=1; break;
-	    case RIG_MODE_USB   : ret=2; break;
-	    case RIG_MODE_PKTUSB: ret=3; break;
-	    case RIG_MODE_PKTFM:
-	    case RIG_MODE_WFM   : 
-	    case RIG_MODE_FM    : ret=4; break;
-	    case RIG_MODE_AM    : ret=5; break;
-	    case RIG_MODE_NONE  :
-	    default             :  ret=-1; break;
-	}
-	free_hamlib();
+        rig_get_mode(rig, RIG_VFO_CURR, &mode, &width);
+        switch (mode) {
+            case RIG_MODE_RTTY:
+            case RIG_MODE_RTTYR:
+            case RIG_MODE_CWR:
+            case RIG_MODE_CW    : ret=0; break;
+            case RIG_MODE_PKTLSB:
+            case RIG_MODE_LSB   : ret=1; break;
+            case RIG_MODE_USB   : ret=2; break;
+            case RIG_MODE_PKTUSB: ret=3; break;
+            case RIG_MODE_PKTFM:
+            case RIG_MODE_WFM   : 
+            case RIG_MODE_FM    : ret=4; break;
+            case RIG_MODE_AM    : ret=5; break;
+            case RIG_MODE_NONE  :
+            default             :  ret=-1; break;
+        }
+        free_hamlib();
     }
     return ret;
 }
@@ -256,34 +299,34 @@ void set_mode(int mode)
     pbwidth_t my_width;
 
     if (can_hamlib()) {
-	switch(mode) {
+        switch(mode) {
             case 0:
-		my_mode=RIG_MODE_CW;
-		my_width=rig_passband_normal(rig,RIG_MODE_CW);
-        	break;
+                my_mode=RIG_MODE_CW;
+                my_width=rig_passband_normal(rig,RIG_MODE_CW);
+                break;
             case 1:
-		my_mode=RIG_MODE_LSB;
-		my_width=rig_passband_normal(rig,RIG_MODE_LSB);
-        	break;
+                my_mode=RIG_MODE_LSB;
+                my_width=rig_passband_normal(rig,RIG_MODE_LSB);
+                break;
             case 2:
-		my_mode=RIG_MODE_USB;
-		my_width=rig_passband_normal(rig,RIG_MODE_USB);
-        	break;
+                my_mode=RIG_MODE_USB;
+                my_width=rig_passband_normal(rig,RIG_MODE_USB);
+                break;
             case 3:
-		my_mode=RIG_MODE_PKTUSB;
-		my_width=rig_passband_wide(rig,RIG_MODE_PKTUSB);
-        	break;
+                my_mode=RIG_MODE_PKTUSB;
+                my_width=rig_passband_wide(rig,RIG_MODE_PKTUSB);
+                break;
             case 4:
-		my_mode=RIG_MODE_FM;
-		my_width=rig_passband_wide(rig,RIG_MODE_FM);
-        	break;
+                my_mode=RIG_MODE_FM;
+                my_width=rig_passband_wide(rig,RIG_MODE_FM);
+                break;
             case 5:
-		my_mode=RIG_MODE_AM;
-		my_width=rig_passband_wide(rig,RIG_MODE_AM);
-        	break;
-	}
-	rig_set_mode(rig,RIG_VFO_CURR,my_mode,my_width);
-	free_hamlib();
+                my_mode=RIG_MODE_AM;
+                my_width=rig_passband_wide(rig,RIG_MODE_AM);
+                break;
+        }
+        rig_set_mode(rig,RIG_VFO_CURR,my_mode,my_width);
+        free_hamlib();
     }
 }
 
@@ -297,9 +340,9 @@ int get_ptt()
     int ret=-1;
     if (can_hamlib()) {
         if (rig_get_ptt(rig, RIG_VFO_CURR, &ptt) == RIG_OK) {
-	  if (ptt) ret=1; else ret=0;
-	}
-	free_hamlib();
+          if (ptt) ret=1; else ret=0;
+        }
+        free_hamlib();
     }
     return ret;
 }
@@ -309,9 +352,9 @@ double get_freq()
     double ret=0.0;
     freq_t freq;
     if (can_hamlib()) {
-	rig_get_freq(rig, RIG_VFO_CURR, &freq);
-	ret = freq;
-	free_hamlib();
+        rig_get_freq(rig, RIG_VFO_CURR, &freq);
+        ret = freq;
+        free_hamlib();
     }
     return ret;
 }
@@ -324,8 +367,8 @@ int get_cwspeed()
     value_t val;
     val.i=0;
     if (can_hamlib()) {
-	rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_KEYSPD, &val);
-	free_hamlib();
+        rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_KEYSPD, &val);
+        free_hamlib();
     }
     return val.i;
 }
@@ -336,10 +379,10 @@ void set_cwspeed(int i)
     // set keyer speed on rig even if we use WinKey
     if (wkeymode == 2) set_winkey_speed(i);
     if (can_hamlib()) {
-	if (i < 12) i=12;
-	val.i=i;
-	rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_KEYSPD, val);
-	free_hamlib();
+        if (i < 12) i=12;
+        val.i=i;
+        rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_KEYSPD, val);
+        free_hamlib();
     }
 }
 
@@ -348,12 +391,12 @@ void send_cw(const char *msg)
     switch (wkeymode) {
         case 1:
            if (can_hamlib()) {
-		rig_send_morse(rig, RIG_VFO_CURR, msg);
-		free_hamlib();
-	   }
+                rig_send_morse(rig, RIG_VFO_CURR, msg);
+                free_hamlib();
+           }
            break;
-	case 2:
-	    send_winkey(msg);
+        case 2:
+            send_winkey(msg);
            break;
     }
 }
@@ -363,12 +406,43 @@ void close_hamlib()
     int ret;
 
     if (can_hamlib()) {
-	rig_close(rig);
-	rig_cleanup(rig);
-	rig=NULL;
-	// wait for rigctl thread to terminate
-	if(pthread_join(rigctld_thread, NULL)) perror("CLOSE:JOIN:");
-	free_hamlib();
+      MYTRACE("close_hamlib: got mutex\n");
+      //
+      // This is the only place where the "running" flag is cleared
+      //
+      running=0;
+      //
+      // rigctld_func uses select() with a timeout, so it will terminate
+      // shortly after setting running to zero
+      //
+      if(pthread_join(rigctld_thread, NULL)) perror("CLOSE:JOIN main:");
+      MYTRACE("close_hamlib: joined main rigctld thread\n");
+      //
+      // now terminate all client threads. These are most likely stuck in
+      // a read() from the socket so we have to send a signal.
+      //
+      for (int i=0; i<MAX_CLIENT; i++) {
+        //
+        // if "thread" is NULL, then the client has already performed the clean-up
+        //
+        if (clients[i].thread) {
+          if (pthread_kill(clients[i].thread,SIGALRM)) perror("CLOSE:KILL");
+          MYTRACE("About to join id=%d\n", i);
+          if (pthread_join(clients[i].thread,NULL)) perror("CLOSE:JOIN client");
+          MYTRACE("Join successful\n");
+          clients[i].thread=NULL;
+          if (clients[i].sock >= 0) close(clients[i].sock);
+          if (clients[i].fsockin)   fclose(clients[i].fsockin);
+          if (clients[i].fsockout)  fclose(clients[i].fsockout);
+        }
+      }
+      //
+      // Close the rig and release all memory associated with "rig"
+      //
+      rig_close(rig);
+      rig_cleanup(rig);
+      rig=NULL;
+      free_hamlib();
     }
     // close wkey device
     if (wkeymode == 2 ) close_winkey_port();
@@ -386,12 +460,16 @@ int open_hamlib(const char* rigdev, const char* pttdev, const char *wkeydev, int
     int err;
     pthread_attr_t attr;
 
+    //
+    // Note that because close_hamlib uses can_hamlib(), it is a no-op if
+    // the rig is not open
+    //
     close_hamlib();
 
     if (!strcmp(wkeydev,"CAT")) {
         wkeymode=1;
     } else  {
-	if (open_winkey_port(wkeydev)) wkeymode=2;
+        if (open_winkey_port(wkeydev)) wkeymode=2;
     }
 
     // init Hamlib
@@ -411,31 +489,37 @@ int open_hamlib(const char* rigdev, const char* pttdev, const char *wkeydev, int
     err = rig_set_conf(rig, rig_token_lookup(rig,"rig_pathname"), rigdev);
     rigctl_ptt_cmd = RIG_PTT_ON; //default value
     if (!strcmp(pttdev,"CAT-Data") || !strcmp(pttdev,"CAT-Mic")) {
-	if (rig->caps->ptt_type == RIG_PTT_RIG_MICDATA) {
-	  // rig does support two separate CAT PTT commands, so
-	  // remember which one to use.
-	  if (!strcmp(pttdev,"CAT-Data")) rigctl_ptt_cmd=RIG_PTT_ON_DATA;
-	  if (!strcmp(pttdev,"CAT-Mic"))  rigctl_ptt_cmd=RIG_PTT_ON_MIC;
+        if (rig->caps->ptt_type == RIG_PTT_RIG_MICDATA) {
+          // rig does support two separate CAT PTT commands, so
+          // remember which one to use.
+          if (!strcmp(pttdev,"CAT-Data")) rigctl_ptt_cmd=RIG_PTT_ON_DATA;
+          if (!strcmp(pttdev,"CAT-Mic"))  rigctl_ptt_cmd=RIG_PTT_ON_MIC;
           err = rig_set_conf(rig, rig_token_lookup(rig,"ptt_type"), "RIGMICDATA");
-	} else {
-	  // if rig does not have two separate PTT commands, use RIG_PTT_ON
-	  // in either case and set ptt_type to RIG_PTT_RIG.
-	  err = rig_set_conf(rig, rig_token_lookup(rig,"ptt_type"), "RIG");
-	}
+        } else {
+          // if rig does not have two separate PTT commands, use RIG_PTT_ON
+          // in either case and set ptt_type to RIG_PTT_RIG.
+          err = rig_set_conf(rig, rig_token_lookup(rig,"ptt_type"), "RIG");
+        }
     } else { 
         err = rig_set_conf(rig, rig_token_lookup(rig,"ptt_pathname"), pttdev);
         err = rig_set_conf(rig, rig_token_lookup(rig,"ptt_type"), "DTR");
     }
     err = rig_open(rig);
     if (err != RIG_OK) goto err_ret;
+    running=1;
     //
     // Start a rigctld server
     //
-    // Ignore SIGPIPE, since this may happen if a client is not interested in an answer
+    // Ignore SIGPIPE, since this may be raised when we send the answer of a command
+    // while the client has already closed the connection.
+    //
     signal(SIGPIPE, SIG_IGN);
-    if (pthread_attr_init(&attr))                                   perror("ThreadAttrInit:");
-    // Start the ball rolling
-    if (pthread_create(&rigctld_thread, &attr, rigctld_func, NULL)) perror("THREAD CREATE:");
+    if (pthread_attr_init(&attr)) {
+      perror("ThreadAttrInit rigctld_func:");
+    }
+    if (pthread_create(&rigctld_thread, &attr, rigctld_func, NULL)) {
+      perror("THREAD CREATE rigctld_func:");
+    }
     return 1;
 
 err_ret:
@@ -446,139 +530,82 @@ err_ret:
     
 }
 
+//
+// This is to enforce exiting a thread when a SIGALRM is received
+// Only use this for threads which might get stuck in a system call
+// Do not use SIGKILL or SIGTERM for this purpose, because it kills
+// the whole process (including all threads).
+//
+void alarm_handler(int signum) {
+  MYTRACE("ALARM HANDLER sig=%d\n", signum);
+  pthread_exit(NULL);
+}
+
 #include "rigctl_parse.h"
-extern FILE *fmemopen(void *, size_t, const char *);
 
-void *rigctld_serve(void * w)
+void *rigctld_serve(void* arg)
 {
-    int sock = *(int *) w;
-#define INPUTSIZE 128		// max one line
-#define OUTPUTSIZE 4096		// headroom for dump_state
-    char input[INPUTSIZE+2];	// one extra char for terminating zero and eol
-    char output[OUTPUTSIZE+1];  // one extra char for terminating zero
-    char *cp;
-    size_t insize;
-    FILE *fpin, *fpout;
-    fd_set fds;
-    struct timeval tv;
+    CLIENT *client = (CLIENT *)arg;
+
     int ret;
+    int  ext_resp=0;
+    int  vfo_mode=0;
+    char resp_sep='\n';
+    char send_cmd_term = '\r';
 
-    //
-    // we have opened input and output channels, so repeatedly execute hamlib commands
-    // This loop terminates if a rigctl "q" command is executed, and if some
-    // error condition occurs (rig close or I/O error)
-    //
-    for (;;) {
-        // read exactly on line from the socket in invoke rigctl_parse
-        // while waiting for characters to arrive, watch out for closing the rig
-        insize=0;
-        for (;;) {
-	    // infinite loop: wait for characters to arrive, "break" if line is full
-            if (!rig) {
-		MYTRACE("RIGCTLD: stopping  server, socket fd=%d\n",sock);
-                close(sock);
-                return NULL;
-            }
-            tv.tv_sec=0;
-            tv.tv_usec=100000;
-            FD_ZERO(&fds);
-            FD_SET(sock, &fds);
-            ret=select(sock+1, &fds, NULL, NULL, &tv);
-            if (ret == 0) continue;
-            if (ret < 0) {
-                // Socket broken, client terminated ungracefully
-                MYERROR("RIGCTLD: broken pipe (select) -- Closing connetion\n");
-		close(sock);
-		return NULL;
-            }
-            // 1 char arrived
-            ret=read(sock, input+insize, 1);
-            if (ret <= 0) {
-                // Socket broken, client terminated ungracefully
-                MYERROR("RIGCTLD: broken pipe (read) -- Closing connection\n");
-		close(sock);
-		return NULL;
-            }
-            if (insize >= INPUTSIZE) {
-                MYERROR("RIGCTLD: line buffer overflow -- Closing connection\n");
-		close(sock);
-		return NULL;
-            }
-            // allow alternate facts for line ending
-            if (input[insize] == 0x0d) input[insize]=0x0a;
-            if (input[insize] == 0x00) input[insize]=0x0a;
-            if (input[insize++] == 0x0a) break;
-        }
-        input[insize++]=0;
-        MYDEBUG("RIGCTLD: ToHamlibCmd=%s",input);
-        // get exclusive access
-        if(pthread_mutex_lock(&rigctld_mutex)) perror("RIGCTLD: mutex lock:");
-        if (rig) {
-            // since we are exclusive here, we cannot lose the rig
-            // via hamlib_close in the main thread
-            // I/O to and from rigctl_parse via a "memory STREAM"
-	    int  ext_resp=0;
-            int  vfo_opt=0;
-	    char resp_sep='\n';
-	    char send_cmd_term = '\r';
-            fpin=fmemopen(input, insize, "r");
-            fpout=fmemopen(output, OUTPUTSIZE, "w");
-            memset(output, 0, OUTPUTSIZE);
-            MYDEBUG("RIGCTLD: calling Hamlib\n");
-            ret=rigctl_parse(rig,		// The rig
-                             fpin, 		// The input stream
-			     fpout, 		// The output stream
-			     NULL, 0, 		// argv and argc dummy
-			     NULL,		// sync_cb dummy
-			     1,			// interactive
-			     0,			// prompt
-			     &vfo_opt,		// vfo_opt
-			     send_cmd_term,	// send_cmd_term
-			     &ext_resp,		// constant
-			     &resp_sep,    	// constant
-                             0);                // use password
-            MYDEBUG("RIGCTLD: Hamlib execution finished, ret=%d\n",ret);
-            fclose(fpin);
-            fclose(fpout);
-        }
-        if (pthread_mutex_unlock(&rigctld_mutex)) perror("RIGCTLD: mutex unlock:");
+    signal(SIGALRM, alarm_handler);
 
-        //
-        // quit if error, empty line, of "q" command. Then there is no response
-        //
-        switch (ret)  {
-          case 1:  // "q" command
-	    ret = -1;
-            break;
-          case -RIG_EDEPRECATED:
-          case -RIG_EINVAL:
-          case -RIG_ENIMPL:
-            //
-            // These "errors" should not lead to closing the connection
-	    ret = 0;
-            break;
-        }  
-        
-        if (ret < 0) {
-	    MYTRACE("RIGCTLD: stopping  server, socket fd=%d\n",sock);
-	    close(sock);
-	    return NULL;
-	}
-        //
-        // return result to the client. If pipe is broken, quit
-        //
-        output[OUTPUTSIZE]=0;   // just in case
-        MYDEBUG("%s",output);
-        cp=output;
-        while (*cp) {
-            if (write(sock, cp++, 1) != 1) {
-                MYERROR("RIGCTLD: broken pipe (write)\n");
-		close(sock);
-		return NULL;
-            }
-        }
-        MYDEBUG("RIGCTLD sent back %d chars, ret=%d\n",(int) (cp-output),ret);
+    client->fsockin=fdopen(client->sock,"rb");
+    client->fsockout=fdopen(client->sock,"wb");
+
+    if (!client->fsockin || !client->fsockout) {
+        MYTRACE("RIGCTLD: fdopen failed, giving up\n");
+        if (client->fsockin)  fclose(client->fsockin);
+        if (client->fsockout) fclose(client->fsockout);
+        close(client->sock);
+        client->fsockin=NULL;
+        client->fsockout=NULL;
+        client->sock=-1;
+        return NULL;
     }
+  
+    while (running) {
+      ret=rigctl_parse(rig,                // The rig
+                       client->fsockin,    // The input stream
+                       client->fsockout,   // The output stream
+                       NULL, 0,            // argv and argc dummy
+                       sync_hamlib,        // function to get/release mutex
+                       1,                  // interactive
+                       0,                  // prompt
+                       &vfo_mode,          // vfo_mode
+                       send_cmd_term,      // send_cmd_term
+                       &ext_resp,          // constant
+                       &resp_sep,          // constant
+                       0);                 // use password
+      MYDEBUG("RIGCTLD: Hamlib command executed, ret=%d\n",ret);
+
+      //
+      // simply continue upon "deprecated", "inval", and "not implemented" error conditions
+      //
+      if (ret < 0 && ret != -RIG_EDEPRECATED && ret != -RIG_EINVAL && ret != -RIG_ENIMPL) break;
+    }
+    //
+    // If the socket has been closed by the client, clean up under a lock.
+    // If we come here because hamlib is being closed (runing == 0), then
+    // simply return.
+    //
+    if (can_hamlib()) {
+      MYTRACE("RIGCTLD: stopping  server, socket fd=%d\n",client->sock);
+      fclose(client->fsockin);
+      fclose(client->fsockout);
+      close(client->sock);
+      client->thread=NULL;
+      client->fsockin=NULL;
+      client->fsockout=NULL;
+      client->sock=-1;
+      free_hamlib();
+    }
+    return NULL;
 }
 
 void *rigctld_func(void * w)
@@ -590,16 +617,21 @@ void *rigctld_func(void * w)
     const char *src_addr = NULL; /* INADDR_ANY */
     int sock_listen;
     int sockopt;
-    int sock;
+    int id;
     int reuseaddr = 1;
     struct sockaddr_storage cli_addr;
     socklen_t clilen;
     fd_set fds;
     struct timeval tv;
-    pthread_t thread;
-    pthread_attr_t attr;
 
     MYTRACE("RIGCTLD: starting daemon\n");
+    for (id=0; id < MAX_CLIENT; id++) {
+      clients[id].id=id;
+      clients[id].thread=NULL;
+      clients[id].sock=-1;
+      clients[id].fsockin=NULL;
+      clients[id].fsockout=NULL;
+    }
 
     /*
      * The following code is essentially from rigctld.c in the hamlib distro
@@ -609,40 +641,40 @@ void *rigctld_func(void * w)
      * Prepare listening socket
      */
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;     /* Allow IPv4 or IPv6 */
-    hints.ai_socktype = SOCK_STREAM;/* TCP socket */
-    hints.ai_flags = AI_PASSIVE;    /* For wildcard IP address */
-    hints.ai_protocol = 0;          /* Any protocol */
+    hints.ai_family = AF_UNSPEC;                 // Allow IPv4 or IPv6
+    hints.ai_socktype = SOCK_STREAM;             // TCP socket
+    hints.ai_flags = AI_PASSIVE;                 // For wildcard IP address
+    hints.ai_protocol = 0;                       // Any protocol
 
     ret = getaddrinfo(src_addr, portno, &hints, &result);
     if (ret != 0) {
-	MYERROR("RIGCTLD: GetAddrInfo: %s\n",gai_strerror(ret));
+        MYERROR("RIGCTLD: GetAddrInfo: %s\n",gai_strerror(ret));
         return NULL;
     }
 
     // try accepting connections from any network
     do {
-	sock_listen = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-	if (sock_listen < 0) {
-	    perror("RIGCTLD:SOCKET:");
-	    return NULL;
-	}
-	if (setsockopt(sock_listen, SOL_SOCKET, SO_REUSEADDR, (char *)&reuseaddr, sizeof(reuseaddr)) < 0) {
-	    perror("RIGCTLD:SETSOCKOPT:REUSE:");
-	    return NULL;
-	}
+        sock_listen = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        if (sock_listen < 0) {
+            perror("RIGCTLD:SOCKET:");
+            return NULL;
+        }
+        if (setsockopt(sock_listen, SOL_SOCKET, SO_REUSEADDR, (char *)&reuseaddr, sizeof(reuseaddr)) < 0) {
+            perror("RIGCTLD:SETSOCKOPT:REUSE:");
+            return NULL;
+        }
         if (!bind(sock_listen, result->ai_addr, result->ai_addrlen)) break;
-	close(sock_listen);
+        close(sock_listen);
     } while ((result = result->ai_next) != NULL);
 
     if (result == NULL) {
-	MYERROR("Bind error, no suitable interface found\n");
-	return NULL;
+        MYERROR("Bind error, no suitable interface found\n");
+        return NULL;
     }
     if (listen(sock_listen, 4) < 0) {
-	perror("RIGCTLD:LISTEN:");
+        perror("RIGCTLD:LISTEN:");
         close(sock_listen);
-	return NULL;
+        return NULL;
     }
     /*
      * Now we have a socket, we are accepting connections.
@@ -650,32 +682,41 @@ void *rigctld_func(void * w)
      * the rig is closed via "return NULL". Before returning,
      * close open file descriptors!
      */
-    while(1) {
-	if (!rig) {
-	    MYTRACE("RIGCTLD: stopping daemon (hamlib closed)\n");
-	    close(sock_listen);
-	    return NULL;
-	}
-	// wait for connection via select() such that we can check for thread termination
-	FD_ZERO(&fds);
-	FD_SET(sock_listen, &fds);
-	tv.tv_sec=1;
-	tv.tv_usec=0;
-	if (select(sock_listen+1, &fds, NULL, NULL, &tv) < 1) continue;
-	sock=accept(sock_listen, (struct sockaddr *)&cli_addr, &clilen);
-	if (sock < 0) continue;
-        MYTRACE("RIGCTLD: start server socket fd=%d\n",sock);
-	//
-	// Spawn a thread which listens to this socket and serves the client.
-	// Important: since we keep not track of the threads created here, put
-	// them in a DETACHED state so we need not JOIN them.
+    while(running) {
+        // wait for an "unused" client
+        id=0;
+        while (1) {
+          if (!clients[id].thread) break;
+          if (id++ >= MAX_CLIENT) break;
+        }
+        if (id >= MAX_CLIENT) {
+          MYTRACE("No free client found!\n");
+          usleep(500000);
+          continue;
+        }
+        
+        // wait for connection via select() such that we can check for thread termination
+        FD_ZERO(&fds);
+        FD_SET(sock_listen, &fds);
+        tv.tv_sec=0;
+        tv.tv_usec=500000;
+        if (select(sock_listen+1, &fds, NULL, NULL, &tv) < 1) continue;
+        clients[id].sock=accept(sock_listen, (struct sockaddr *)&cli_addr, &clilen);
+        if (clients[id].sock < 0) continue;
+        MYTRACE("RIGCTLD: start server id=%d socket fd=%d\n",id,clients[id].sock);
+        //
+        // Spawn a thread which listens to this socket and serves the client.
+        //
+        if(pthread_attr_init(&clients[id].attr)) {
+            perror("RIGCTLD:serve:init\n");
+        }
+        if(pthread_create(&clients[id].thread, &clients[id].attr, rigctld_serve, &clients[id])) {
+            perror("RIGCTLD:serve:create\n");
+        }
 
-	if(pthread_attr_init(&attr))                                    perror("RIGCTLD:serve:init\n");
-	if(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) perror("RIGCTLD:serve:DETACH\n");
-	if(pthread_create(&thread, &attr, rigctld_serve, &sock))        perror("RIGCTLD:serve:create\n");
-
-	// continue: accept new connections until rig is closed
+        // continue: accept new connections until rig is closed
     }
-    /* NOTREACHED */
+    MYTRACE("RIGCTLD: stopping daemon (hamlib closed)\n");
+    close(sock_listen);
     return NULL;
 }

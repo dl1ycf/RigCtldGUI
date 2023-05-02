@@ -1714,9 +1714,11 @@ readline_repeat:
 
     if (my_rig->state.comm_state == 0)
     {
-        rig_debug(RIG_DEBUG_WARN, "%s: %p rig not open...trying to reopen\n", __func__,
-                  &my_rig->state.comm_state);
-        rig_open(my_rig);
+        //rig_debug(RIG_DEBUG_WARN, "%s: %p rig not open...trying to reopen\n", __func__,
+        //          &my_rig->state.comm_state);
+        //rig_open(my_rig);
+        if (sync_cb) sync_cb(0);
+        return -1;
     }
 
     // chk_vfo is the one command we'll allow without a password

@@ -26,7 +26,7 @@
 ########################################################################################################
 
 #
-OBJS=		Rig.o Hamlib.o Winkey.o rigctl_parse.o dumpcaps.o sprintflst.o fmemopen.o
+OBJS=		Rig.o Hamlib.o Winkey.o rigctl_parse.o dumpcaps.o sprintflst.o
 LIBS=		-lfltk -lportaudio -lhamlib -lpthread
 CFLAGS?=	-O
 CXXFLAGS?=	-O

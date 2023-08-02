@@ -587,7 +587,9 @@ void *rigctld_serve(void* arg)
       //
       // simply continue upon "deprecated", "inval", and "not implemented" error conditions
       //
-      if (ret < 0 && ret != -RIG_EDEPRECATED && ret != -RIG_EINVAL && ret != -RIG_ENIMPL) break;
+      if (ret == -RIG_EDEPRECATED || ret == -RIG_EINVAL || ret == -RIG_ENIMPL) continue;
+      if (ret == RIGCTL_PARSE_END || ret == RIGCTL_PARSE_ERROR) break;
+      if (ret < 0) break;
     }
     //
     // If the socket has been closed by the client, clean up under a lock.

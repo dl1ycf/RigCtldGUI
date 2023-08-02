@@ -3,6 +3,8 @@
  * src/misc.h
  */
 
+#undef HAVE_LIBREADLINE
+
 extern HAMLIB_EXPORT(int) sprintf_freq(char *str, int str_len, freq_t);
 extern HAMLIB_EXPORT(double) elapsed_ms(struct timespec *start, int start_flag);
 extern HAMLIB_EXPORT (const char *) spaces();

@@ -40,10 +40,23 @@ several programs (say, fldigi and a logbook program) to your rig at the same tim
 The graphical user interface uses the FLTK library, so a "devel" version of FLTK
 (version 1.3) must be installed. Compiling hamlib requires the "autoconf" package.
 For the voicy-keying and single/two tone experiments one needs the PortAudio
-library. On a RaspberryPi operating system, the required packages can be
-installed with
+library. The following packages should be installed
 
-sudo apt-get install
+a) packages needed for compilation in general
+=============================================
+
+sudo apt-get install gcc
+sudo apt-get install g++
+sudo apt-get install make
+sudo apt-get install autoconf
+sudo apt-get install automake
+sudo apt-get install libtool
+
+b) packages needed for RigCtldGUI
+=================================
+
+sudo apt-get install portaudio19-dev
+sudo apt-get install libfltk1.3-dev
 
 
 

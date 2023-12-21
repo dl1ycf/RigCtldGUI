@@ -430,7 +430,7 @@ void close_hamlib()
           MYTRACE("About to join id=%d\n", i);
           if (pthread_join(clients[i].thread,NULL)) perror("CLOSE:JOIN client");
           MYTRACE("Join successful\n");
-          clients[i].thread=NULL;
+          clients[i].thread=(pthread_t) 0;
           if (clients[i].sock >= 0) close(clients[i].sock);
           if (clients[i].fsockin)   fclose(clients[i].fsockin);
           if (clients[i].fsockout)  fclose(clients[i].fsockout);
@@ -601,7 +601,7 @@ void *rigctld_serve(void* arg)
       fclose(client->fsockin);
       fclose(client->fsockout);
       close(client->sock);
-      client->thread=NULL;
+      client->thread=(pthread_t) 0;
       client->fsockin=NULL;
       client->fsockout=NULL;
       client->sock=-1;
@@ -629,7 +629,7 @@ void *rigctld_func(void * w)
     MYTRACE("RIGCTLD: starting daemon\n");
     for (id=0; id < MAX_CLIENT; id++) {
       clients[id].id=id;
-      clients[id].thread=NULL;
+      clients[id].thread=(pthread_t) 0;
       clients[id].sock=-1;
       clients[id].fsockin=NULL;
       clients[id].fsockout=NULL;

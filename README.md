@@ -1,29 +1,14 @@
 # RigCtldGUI
-A graphical user interface for rig control, offering also "rigctld" functionality
 
-This program is based on the "hamlib" rig control library. Since parts of the code here,
-for example the file rigctl_parse.c and some others, are copied from Hamlib, this program
-will only compile and link well with a specific version of Hamlib present on your system.
+This is the original hamlib "rigctld" (Rig Control Daemon), equipped with
+a graphical user interface. To this end, the hamlib repository is down-loaded
+and compiled when "making" the program (this is done in the shell script
+build-hamlib.sh).
 
-Currently, this is meant to work with Hamlib 4.5.4
----------------------------------------------------
-
-The "step" to Hamlib version 4.5.4 was necessary since my logbook program on my
-Apple Macintosh (MacLogger DX) supports connecting to a rigctld daemon, but
-this has been tested by the MLDX developer for Hamlib 4.5.4.
-
-You can easily get a source code tree from the internet using the commands
-
-````
-  cd <where you want to create the hamlib tree>
-  git clone https://github.com/hamlib/hamlib
-  cd hamlib
-  git checkout 4.5.4
-````
-
-The program is essentially a "rigctld" daemon with a small graphical user interface.
-This allows to have several clients (e.g. a logbook program and a digimode program)
-to connect to the rig which only offers a single connection through a serial or USB cable.
+This program, once connected to a rig, can accept several connections from other
+programs (fldigi, wsjtx, logbook program, etc.) via TCP and connect them with the rig.
+This way many programs can "talk" to the rig even if that rig only offers
+a single connection through a serial or USB cable.
 
 What is currently implemented is
 
@@ -53,9 +38,14 @@ by clicking the appropriate button on this GUI, it is also possible to connect f
 several programs (say, fldigi and a logbook program) to your rig at the same time.
 
 The graphical user interface uses the FLTK library, so a "devel" version of FLTK
-(version 1.3) must be installed. For Hamlib, it is usually preferred to get
-the source code from github and compile/install it, since the hamlib versions in
-the standard repositories lag behind.
+(version 1.3) must be installed. Compiling hamlib requires the "autoconf" package.
+For the voicy-keying and single/two tone experiments one needs the PortAudio
+library. On a RaspberryPi operating system, the required packages can be
+installed with
+
+sudo apt-get install
+
+
 
 There is a (preliminary) small documentation in the files
 

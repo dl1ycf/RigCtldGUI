@@ -550,6 +550,11 @@ int main(int argc, char **argv) {
     PaError err;
     char name[100]; int j;
 
+    //
+    // This is necessary for PortAudio under Linux to
+    // access the "hw" devices
+    //
+    setenv("PA_ALSA_PLUGHW", "1", 1);
 
        err = Pa_Initialize();
        numDevices = Pa_GetDeviceCount();

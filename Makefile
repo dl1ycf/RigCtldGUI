@@ -23,13 +23,14 @@ RigCtl:	$(OBJS)
 Hamlib.o:	Hamlib.c hamlib-local
 	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) -c Hamlib.c
 
-rigctl_parse.o: hamlib-local/tests/rigctl_parse.c
+rigctl_parse.o: hamlib-local
 	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) -c hamlib-local/tests/rigctl_parse.c -o rigctl_parse.o
 
-dumpcaps.o: hamlib-local/tests/dumpcaps.c
+dumpcaps.o: hamlib-local
 	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) -c hamlib-local/tests/dumpcaps.c -o dumpcaps.o
 
-hamlib-local/tests/dumpcaps.c hamlib-local/tests/rigctl_parse.c hamlib-local:
+.PHONY: hamlib-local
+hamlib-local:
 	./build-hamlib.sh
 
 clean:

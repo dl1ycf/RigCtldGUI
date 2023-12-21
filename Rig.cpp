@@ -184,6 +184,9 @@ static Fl_Text_Display *cwsnt;
 static Fl_Text_Buffer *cwsntbuf;
 static Fl_Input *cwinp,*mode;
 
+static Fl_Group *modegroup, *pwrgroup, *speedgroup;
+static Fl_Button *OpenRig;
+
 void get_token(FILE *fp, char *token, int ltoken, char *label, int llabel)
 {
     int i,j;
@@ -232,37 +235,8 @@ void AddToChoice(Fl_Input_Choice *w, char *s) {
   } 
 }
 
-static int event_pass=1;
+static int tuning=0;
 static long counter=0;
-
-int myHandler(int e, Fl_Window *w) {
-//
-// The rationale for this handler is that is simply behaves
-// is it were not there normally (that is, as long as even_pass == 1).
-//
-// If event_pass is set to zero, this event handler just calls do_tune with
-// two dummy arguments if the triggering event was a mouse click.
-//
-// This call to do_tune will restore event_pass ==1 so normal operation
-// continues.
-//
-// This mechanism is used if one of the buttons in the "Tune" menu is activated.
-// The tuning will continue until a mouse click within the controller window takes
-// place, then tuning is stopped.
-// In this way, any temporary change of the mode or the output power can properly
-// and safely be restored.
-//
-  if (event_pass == 1) {
-    return Fl::handle_(e,w);
-  }
-  if (Fl::event_buttons()) {
-    //
-    // Any mouse click will terminate the tune event
-    //
-    do_tune(NULL, NULL);
-  }
-  return 0;
-}
 
 int main(int argc, char **argv) {
 
@@ -274,7 +248,6 @@ int main(int argc, char **argv) {
   char filename[PATH_MAX];
   struct stat statbuf;
 
-  Fl::event_dispatch(myHandler);
   // obtain $HOME/.rigcontrol dir
   strcpy(workdir,".");
   cp=getenv("HOME");
@@ -372,13 +345,13 @@ int main(int argc, char **argv) {
   lab1->labelfont(FL_BOLD);
   lab1->labelsize(14);
 
-  Fl_Group *g1 = new Fl_Group(440,100,80,240);
+  pwrgroup = new Fl_Group(440,100,80,240);
   pow1 = new Fl_Button(460,130,  40, 20, "  5"); pow1->type(FL_RADIO_BUTTON);  pow1->color(7,5); pow1->callback(do_pow, (void*)   5);
   pow2 = new Fl_Button(460,160,  40, 20, " 10"); pow2->type(FL_RADIO_BUTTON);  pow2->color(7,5); pow2->callback(do_pow, (void*)  10);
   pow3 = new Fl_Button(460,190,  40, 20, " 25"); pow3->type(FL_RADIO_BUTTON);  pow3->color(7,5); pow3->callback(do_pow, (void*)  25);
   pow4 = new Fl_Button(460,220,  40, 20, " 50"); pow4->type(FL_RADIO_BUTTON);  pow4->color(7,5); pow4->callback(do_pow, (void*)  50);
   pow5 = new Fl_Button(460,250,  40, 20, "100"); pow5->type(FL_RADIO_BUTTON);  pow5->color(7,5); pow5->callback(do_pow, (void*) 100);
-  g1->end();
+  pwrgroup->end();
 
 
   Fl_Box *lab2  = new Fl_Box(360,100,80,20,"CW wpm");
@@ -386,13 +359,13 @@ int main(int argc, char **argv) {
   lab2->labelfont(FL_BOLD);
   lab2->labelsize(14);
 
-  Fl_Group *g2 = new Fl_Group(360,100,80,240);
+  speedgroup = new Fl_Group(360,100,80,240);
   speed1 = new Fl_Button(380,130,  40, 20, "");   speed1->type(FL_RADIO_BUTTON);  speed1->color(7,5); speed1->callback(do_speed, (void *) 12);
   speed2 = new Fl_Button(380,160,  40, 20, "15"); speed2->type(FL_RADIO_BUTTON);  speed2->color(7,5); speed2->callback(do_speed, (void *) 15);
   speed3 = new Fl_Button(380,190,  40, 20, "18"); speed3->type(FL_RADIO_BUTTON);  speed3->color(7,5); speed3->callback(do_speed, (void *) 18);
   speed4 = new Fl_Button(380,220,  40, 20, "21"); speed4->type(FL_RADIO_BUTTON);  speed4->color(7,5); speed4->callback(do_speed, (void *) 21);
   speed5 = new Fl_Button(380,250,  40, 20, "24"); speed5->type(FL_RADIO_BUTTON);  speed5->color(7,5); speed5->callback(do_speed, (void *) 24);
-  g2->end();
+  speedgroup->end();
 
   Fl_Box *lab3  = new Fl_Box(280,100,80,20,"CW TXT");
   lab3->box(FL_FLAT_BOX);
@@ -417,13 +390,13 @@ int main(int argc, char **argv) {
   lab5->labelfont(FL_BOLD);
   lab5->labelsize(14);
 
-  Fl_Group *g4 = new Fl_Group(180,100,80,240);
+  modegroup = new Fl_Group(180,100,80,240);
   mode1 = new Fl_Button(180,130, 80, 20, "CW");       mode1->type(FL_RADIO_BUTTON); mode1->color(7,5); mode1->callback(do_mode, (void *) 0);
   mode2 = new Fl_Button(180,160, 80, 20, "LSB");      mode2->type(FL_RADIO_BUTTON); mode2->color(7,5); mode2->callback(do_mode, (void *) 1);
   mode3 = new Fl_Button(180,190, 80, 20, "USB");      mode3->type(FL_RADIO_BUTTON); mode3->color(7,5); mode3->callback(do_mode, (void *) 2);
   mode4 = new Fl_Button(180,220, 80, 20, "USB Data"); mode4->type(FL_RADIO_BUTTON); mode4->color(7,5); mode4->callback(do_mode, (void *) 3);
   mode5 = new Fl_Button(180,250, 80, 20, "FM");       mode5->type(FL_RADIO_BUTTON); mode5->color(7,5); mode5->callback(do_mode, (void *) 4);
-  g4->end();
+  modegroup->end();
 
   Fl_Box *lab6 = new Fl_Box(80,100, 80, 20, "Voice");
   lab6->box(FL_FLAT_BOX);
@@ -447,7 +420,7 @@ int main(int argc, char **argv) {
   tune4 = new Fl_Button(10, 220,  60, 20, "1700 Hz"); tune4->type(FL_TOGGLE_BUTTON); tune4->color(7,2); tune4->callback(do_tune, (void *) 4);
   tune5 = new Fl_Button(10, 250,  60, 20, "2 Tone");  tune5->type(FL_TOGGLE_BUTTON); tune5->color(7,2); tune5->callback(do_tune, (void *) 5);
 
-  Fl_Button       *OpenRig   = new Fl_Button(10,280,290,20,"Open Rig");  OpenRig->type(FL_TOGGLE_BUTTON); OpenRig->color(7,2); OpenRig->callback(open_rig);
+                   OpenRig   = new Fl_Button(10,280,290,20,"Open Rig");  OpenRig->type(FL_TOGGLE_BUTTON); OpenRig->color(7,2); OpenRig->callback(open_rig);
   Fl_Choice       *RigModel  = new Fl_Choice(90,310,200,20,"Rig model"); RigModel->callback(choose_model);
   Fl_Input_Choice *SerialRig = new Fl_Input_Choice(90,340,200,20,"Rig port");  SerialRig->callback(choose_serial);
   Fl_Input_Choice *SerialPTT = new Fl_Input_Choice(90,370,200,20,"PTT port");  SerialPTT->callback(choose_ptt);
@@ -460,7 +433,8 @@ int main(int argc, char **argv) {
   Volume->align(FL_ALIGN_LEFT);
   Volume->bounds(0.0,1.0);
   Volume->callback(do_volume, NULL);
-  Volume->value(0.5);
+  Volume->value(0.40);
+  master_volume=0.031623;
 
   Fl_Button *setcw    = new Fl_Button(320, 400, 120, 20, "Set CW texts");    setcw->callback(do_setcw, NULL);
   Fl_Button *setvoice = new Fl_Button(320, 430, 120, 20, "Set voice files"); setvoice->callback(do_setvoice, NULL);
@@ -761,28 +735,49 @@ err:
     return -1;
 }
 
+//
+// As long as one of the "Tune" buttons is active,
+// the Mode, Power, and CW speed groups as well as
+// the Open/Close rig button is deactivated,
+// and the Voice and CW-text buttons do nothing.
+//
+// Furthermore, hitting another "Tune" button also
+// does nothing, one has to hit the active one to
+// switch off.
+//
+// This is because the "old" mode/power is saved
+// and will be restored when the "Tune" process
+// ends. Furthermore, no "voice keying" etc.
+// should occur while TUNEing.
+//
 void do_tune(Fl_Widget *w, void * data)
 {
     int val,cmd;
     static int last_cmd;
     static Fl_Widget *last_w;
 
-//
-//  These buttons are special.
-//  Do not return but wait until button is 
-//  de-selected
-//
-    if (event_pass == 1) {
-      val=((Fl_Button *)w)->value();
-      cmd=(int) (long) data;
+    val=((Fl_Button *)w)->value();
+    cmd=(int) (long) data;
+    if (tuning == 0) {
       last_cmd=cmd;
       last_w=w;
-      event_pass=0;
-    } else {
+      tuning = 1;
+      modegroup->deactivate();
+      pwrgroup->deactivate();
+      speedgroup->deactivate();
+      OpenRig->deactivate();
+    } else {   
+      if (w != last_w) {
+	((Fl_Button *)w)->value(0);
+        return;    
+      }	
       val=0;
       cmd=last_cmd;
-      event_pass=1;
-      ((Fl_Button *)last_w)->value(0);
+      tuning=0;
+      modegroup->activate();
+      pwrgroup->activate();
+      speedgroup->activate();
+      OpenRig->activate();
     }
     switch (cmd) {
       case 1: // "tune" carrier with 10 watts
@@ -869,6 +864,10 @@ void do_tone(int flag1, int flag2)
 
 void do_voice(Fl_Widget *w, void * data)
 {
+    if (tuning) {
+      ((Fl_Button *) w)->value(0);
+      return;	 
+    } 
     // Play the voice
     sample *s = (sample *) data;
     set_ptt(1);
@@ -962,7 +961,7 @@ void do_pow(Fl_Widget *, void* data)
 }
 
 
-void do_mode(Fl_Widget *, void *data)
+void do_mode(Fl_Widget *w, void *data)
 {
     int val=(int) (long) data;
     set_mode(val);
@@ -1176,6 +1175,10 @@ void do_cwinp(Fl_Widget *w, void* data )
 
 void do_cwtxt(Fl_Widget *w, void* data )
 {
+   if (tuning) {
+     ((Fl_Button *) w)->value(0);
+     return;
+   }
    char *text = (char *) data;
    if (((Fl_Button *) w)->value() == 0) return;
    splitCW(text,1);
@@ -1187,9 +1190,13 @@ void do_volume(Fl_Widget *w, void *)
   double val;
   val = ((Fl_Slider *) w)->value();
   // convert using a logarithmic scale
-  // 0.0 --> -40dB = 0.01
-  // 1.0 -->   0dB = 1.0
-  master_volume=(double) pow(10.0,2.0*(val-1));
+  // 0.00 --> -50dB
+  // 0.20 --> -40dB
+  // 0.40 --> -30dB
+  // 0.60 --> -20dB
+  // 0.80 --> -10dB
+  // 1.00 -->   0dB
+  master_volume=(double) pow(10.0,2.5*(val-1));
 }
 
 void apply_cw(Fl_Widget *w, void *) {

@@ -17,7 +17,7 @@ autoreconf -i
 ./configure --without-readline --without-libusb --disable-winradio --enable-static --disable-shared
 fi
 
-make
+make -j 4
 
 #
 # Test presence of certain  files

@@ -169,8 +169,8 @@ sample wav[5];
 static double sintab[lentab];
 static int tonept;
 
-#define FACT1 0.11780972450961724644234912687298  //  9 * (2 Pi) / 480,   900 Hz tone
-#define FACT2 0.22252947962927702105777057298230  // 17 * (2 Pi) / 480,  1700 Hz tone
+#define FACT1 0.091629785729702302788493765345652 //  7 * (2 Pi) / 480,   700 Hz tone
+#define FACT2 0.24870941840919196471162593450963  // 19 * (2 Pi) / 480,  1900 Hz tone
 
 int getwav(sample *);
 
@@ -257,7 +257,7 @@ int main(int argc, char **argv) {
       if (stat(filename, &statbuf) != 0) {
         if (mkdir(filename,0755) == 0) strcpy(workdir,filename);
       } else {
-	strcpy(workdir,filename);
+    strcpy(workdir,filename);
       }
   }
   
@@ -416,8 +416,8 @@ int main(int argc, char **argv) {
 
   tune1 = new Fl_Button(10, 130,  60, 20, "CW 10");   tune1->type(FL_TOGGLE_BUTTON); tune1->color(7,2); tune1->callback(do_tune, (void *) 1);
   tune2 = new Fl_Button(10, 160,  60, 20, "CW 25");   tune2->type(FL_TOGGLE_BUTTON); tune2->color(7,2); tune2->callback(do_tune, (void *) 2);
-  tune3 = new Fl_Button(10, 190,  60, 20, "900 Hz");  tune3->type(FL_TOGGLE_BUTTON); tune3->color(7,2); tune3->callback(do_tune, (void *) 3);
-  tune4 = new Fl_Button(10, 220,  60, 20, "1700 Hz"); tune4->type(FL_TOGGLE_BUTTON); tune4->color(7,2); tune4->callback(do_tune, (void *) 4);
+  tune3 = new Fl_Button(10, 190,  60, 20, "700 Hz");  tune3->type(FL_TOGGLE_BUTTON); tune3->color(7,2); tune3->callback(do_tune, (void *) 3);
+  tune4 = new Fl_Button(10, 220,  60, 20, "1900 Hz"); tune4->type(FL_TOGGLE_BUTTON); tune4->color(7,2); tune4->callback(do_tune, (void *) 4);
   tune5 = new Fl_Button(10, 250,  60, 20, "2 Tone");  tune5->type(FL_TOGGLE_BUTTON); tune5->color(7,2); tune5->callback(do_tune, (void *) 5);
 
                    OpenRig   = new Fl_Button(10,280,290,20,"Open Rig");  OpenRig->type(FL_TOGGLE_BUTTON); OpenRig->color(7,2); OpenRig->callback(open_rig);
@@ -543,12 +543,12 @@ int main(int argc, char **argv) {
                outputParameters.hostApiSpecificStreamInfo = NULL;
                if (Pa_IsFormatSupported(NULL, &outputParameters, 48000.0) == paFormatIsSupported) {
                  strcpy(name,deviceInfo->name);
-		 // for the time being, ignore "dmix" devices
-		 if (strncmp(name,"dmix",4)) {
-		   sounddevname[numsounddev]=deviceInfo->name;
+         // for the time being, ignore "dmix" devices
+         if (strncmp(name,"dmix",4)) {
+           sounddevname[numsounddev]=deviceInfo->name;
                    sounddev[numsounddev++] =i;
                    strcpy(name,deviceInfo->name);
-		   // unpredictable things happen if the name contains a slash, therefore change it to colon
+           // unpredictable things happen if the name contains a slash, therefore change it to colon
                    for (j=0; j< strlen(name); j++) {
                      if (name[j] == '/') name[j]=':';
                    }
@@ -559,10 +559,10 @@ int main(int argc, char **argv) {
       }
   }
   if (numsounddev == 0) {
-	sounddev[0]=-1;
-	sounddevname[0]="NULL";
-	SoundCard->add(sounddevname[0]);
-	numsounddev=1;
+    sounddev[0]=-1;
+    sounddevname[0]="NULL";
+    SoundCard->add(sounddevname[0]);
+    numsounddev=1;
   }
   SoundCard->value(0); mysounddev=0; sounddevice=sounddev[0];
   for (i=0; i<numsounddev; i++) {
@@ -768,9 +768,9 @@ void do_tune(Fl_Widget *w, void * data)
       OpenRig->deactivate();
     } else {   
       if (w != last_w) {
-	((Fl_Button *)w)->value(0);
+    ((Fl_Button *)w)->value(0);
         return;    
-      }	
+      } 
       val=0;
       cmd=last_cmd;
       tuning=0;
@@ -827,22 +827,22 @@ void do_tone(int flag1, int flag2)
       switch (flag2) {
         case 1:
         for (i=0; i< lentab; i++) {
-	    sintab[i] = 0.98*sin(ang1);
-	    ang1 += FACT1;
-	}
-	break;
-	case 2:
+        sintab[i] = 0.98*sin(ang1);
+        ang1 += FACT1;
+    }
+    break;
+    case 2:
         for (i=0; i< lentab; i++) {
-	    sintab[i] = 0.98*sin(ang2);
-	    ang2 += FACT2;
-	}
+        sintab[i] = 0.98*sin(ang2);
+        ang2 += FACT2;
+    }
         break;
         case 3:
         for (i=0; i< lentab; i++) {
-	    sintab[i] = 0.49*(sin(ang1)+sin(ang2));
-	    ang1 += FACT1;
-	    ang2 += FACT2;
-	}
+        sintab[i] = 0.49*(sin(ang1)+sin(ang2));
+        ang1 += FACT1;
+        ang2 += FACT2;
+    }
         break;
       }
       tonept=0;
@@ -866,27 +866,27 @@ void do_voice(Fl_Widget *w, void * data)
 {
     if (tuning) {
       ((Fl_Button *) w)->value(0);
-      return;	 
+      return;    
     } 
     // Play the voice
     sample *s = (sample *) data;
     set_ptt(1);
     if (sounddevice >= 0 && s->numsamples > 0) {
         PaStream *stream;
-	PaError err;
-	PaStreamParameters outputParameters;
+    PaError err;
+    PaStreamParameters outputParameters;
         int i, j, left;
         long FramesPerBuffer=256;
         float audiobuf[256];
 
         bzero(&outputParameters, sizeof(outputParameters));
-	outputParameters.device = sounddevice;
-	outputParameters.channelCount = 1;
+    outputParameters.device = sounddevice;
+    outputParameters.channelCount = 1;
         outputParameters.sampleFormat = paFloat32;
-	outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultHighOutputLatency;
-	outputParameters.hostApiSpecificStreamInfo = NULL;
-	/* -- setup stream -- */
-	err = Pa_OpenStream(
+    outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultHighOutputLatency;
+    outputParameters.hostApiSpecificStreamInfo = NULL;
+    /* -- setup stream -- */
+    err = Pa_OpenStream(
           &stream,
           NULL,
           &outputParameters,
@@ -896,19 +896,19 @@ void do_voice(Fl_Widget *w, void * data)
           NULL, /* no callback, use blocking API */
           NULL ); /* no callback, so no callback userData */
 
-	if( err != paNoError ) return;
-	/* -- start stream -- */
-	err = Pa_StartStream( stream );
-	if( err != paNoError ) return;
+    if( err != paNoError ) return;
+    /* -- start stream -- */
+    err = Pa_StartStream( stream );
+    if( err != paNoError ) return;
         left=s->numsamples;
         i=0;
         while (left >0) {
           if (left >= FramesPerBuffer) {
             for (j=0; j<FramesPerBuffer; j++) audiobuf[j]=master_volume*s->samples[i+j];
-	    err = Pa_WriteStream( stream, audiobuf, FramesPerBuffer);
+        err = Pa_WriteStream( stream, audiobuf, FramesPerBuffer);
           } else {
             for (j=0; j<left; j++) audiobuf[j]=master_volume*s->samples[i+j];
-	    err = Pa_WriteStream( stream, audiobuf, left);
+        err = Pa_WriteStream( stream, audiobuf, left);
           }
           left -= FramesPerBuffer;
           i += FramesPerBuffer;
@@ -989,20 +989,21 @@ void open_rig(Fl_Widget *w, void *)
     cwinp->value("");
     val=cwsnt->insert_position();
     cwsntbuf->remove(0,val);
+    cwsnt->redraw();
     
     val=((Fl_Button *)w)->value();
     if (val == 1) {
        val=open_hamlib(myrigdev,mypttdev,mywkydev,baudrates[mybaud],mymodel);
        ((Fl_Button *)w)->value(val);
-	if (val > 0) {
-	    // ask rig for current values. Adjust accordingly
-	    pow1->value(0);
-	    pow2->value(0);
-	    pow3->value(0);
-	    pow4->value(0);
-	    pow5->value(0);
-	    val=get_rfpower();
-	    //
+    if (val > 0) {
+        // ask rig for current values. Adjust accordingly
+        pow1->value(0);
+        pow2->value(0);
+        pow3->value(0);
+        pow4->value(0);
+        pow5->value(0);
+        val=get_rfpower();
+        //
             // Map
             //  0   -   7 Watt  ==>   5 Watt
             //  8   -  14 Watt  ==>  10 Watt
@@ -1010,54 +1011,54 @@ void open_rig(Fl_Widget *w, void *)
             // 25   -  49 Watt  ==>  30 Watt
             // 50   -     Watt  ==> 100 Watt
             //
-	    if (val <=  7)      { set_rfpower(  5); pow1->value(1); }
-	    else if (val <= 14) { set_rfpower( 10); pow2->value(1); }
-	    else if (val <= 24) { set_rfpower( 20); pow3->value(1); }
-	    else if (val <= 49) { set_rfpower( 30); pow4->value(1); }
+        if (val <=  7)      { set_rfpower(  5); pow1->value(1); }
+        else if (val <= 14) { set_rfpower( 10); pow2->value(1); }
+        else if (val <= 24) { set_rfpower( 20); pow3->value(1); }
+        else if (val <= 49) { set_rfpower( 30); pow4->value(1); }
             else                { set_rfpower(100); pow5->value(1); }
-	    //
- 	    // Make label of first button and set default speed
+        //
+        // Make label of first button and set default speed
             //
- 	    if (wkeymode == 2) {
-		speed1->label("Pot");
-	    } else {
-		speed1->label("12");
-	    }
-	    speed1->value(0);
-	    speed2->value(0);
-	    speed3->value(0);
-	    speed4->value(0);
-	    speed5->value(0);
+        if (wkeymode == 2) {
+        speed1->label("Pot");
+        } else {
+        speed1->label("12");
+        }
+        speed1->value(0);
+        speed2->value(0);
+        speed3->value(0);
+        speed4->value(0);
+        speed5->value(0);
             if (wkeymode == 2) {
-	      speed1->value(1);
-	      set_cwspeed(0);  // this respects the speed pot
+          speed1->value(1);
+          set_cwspeed(0);  // this respects the speed pot
             } else {
-	      speed4->value(1);
-	      set_cwspeed(21);
+          speed4->value(1);
+          set_cwspeed(21);
             }
             //
             // Upon each sucessful connection to a rig,
-	    // save the parameters
+        // save the parameters
             //
             do_saveprefs(NULL, NULL);
-	}
+    }
     } else {
-	close_hamlib();
-	mode1->value(0);
-	mode2->value(0);
-	mode3->value(0);
-	mode4->value(0);
-	mode5->value(0);
-	speed1->value(0);
-	speed2->value(0);
-	speed3->value(0);
-	speed4->value(0);
-	speed5->value(0);
-	pow1->value(0);
-	pow2->value(0);
-	pow3->value(0);
-	pow4->value(0);
-	pow5->value(0);
+    close_hamlib();
+    mode1->value(0);
+    mode2->value(0);
+    mode3->value(0);
+    mode4->value(0);
+    mode5->value(0);
+    speed1->value(0);
+    speed2->value(0);
+    speed3->value(0);
+    speed4->value(0);
+    speed5->value(0);
+    pow1->value(0);
+    pow2->value(0);
+    pow3->value(0);
+    pow4->value(0);
+    pow5->value(0);
     }
 }
 
@@ -1072,80 +1073,88 @@ void open_rig(Fl_Widget *w, void *)
 //
 void splitCW(const char *text, int flag)
 {
-char word[100];
+char word[256];
 char *p, *q, *r;
 int line,pos,p1,p2,i;
 
-    p=(char *)text;
-    q=word;
-    for(;;) {
-        switch ((signed char) *p) {
-	  case '!':
-	    // get number and replace by active CW text
- 	    switch (*(++p)) {
-	      case '1': splitCW(cwtxt1,0); break;
-	      case '2': splitCW(cwtxt2,0); break;
-	      case '3': splitCW(cwtxt3,0); break;
-	      case '4': splitCW(cwtxt4,0); break;
-	      case '5': splitCW(cwtxt5,0); break;
-              default: if (q-word < 99) *q++ = toupper(*p); break;
-	    }
-	    break;
-          case '#':
-	    // replace '#' by the active call sign
-            splitCW(mycall,0);
-	    break;
-	  case -61:  // convert some unicode two-byte characters
-	    p++;
-	    if (q-word < 98) switch((signed char) *p) {
-		case -74:
-		case -106:
-		    *q++='O'; *q++='E';
-		    break;
-		case -92:
-		case -124:
-		    *q++='A'; *q++='E';
-		    break;
-		case -68:
-		case -100:
-		    *q++='U'; *q++='E';
-		    break;
-		case -97:
-		    *q++='S'; *q++='S';
-		    break;
-	    }
-	    break;
-          default:
-	    if (q-word < 99) *q++ = toupper(*p);
-        }
-	if (*p == 0) {
-	  *q=0;
-	  // send CW string obtained so far and that's it
-          if (strlen(word) > 0) send_cw(word);
-	  cwsnt->insert(word);
-          break;
-        }
-        if (*p == ' ') {
-	  // send the word and continue analyzing the input text
-	  *q = 0;
-	  send_cw(word);
-          cwsnt->insert(word);
-	  q=word;
-        }
-	p++;
+  p=(char *)text;
+  q=word;
+  for(;;) {
+    switch ((signed char) *p) {
+    case '!':
+      // get number and replace by active CW text
+      switch (*(++p)) {
+      case '1': splitCW(cwtxt1,0); break;
+      case '2': splitCW(cwtxt2,0); break;
+      case '3': splitCW(cwtxt3,0); break;
+      case '4': splitCW(cwtxt4,0); break;
+      case '5': splitCW(cwtxt5,0); break;
+      default: if (q-word < 250) *q++ = toupper(*p); break;
+      }
+    break;
+    case '#':
+      // replace '#' by the active call sign
+      splitCW(mycall, 0);
+      break;
+    case -61:  // convert some unicode two-byte characters
+      p++;
+      if (q-word < 98) switch((signed char) *p) {
+      case -74:
+      case -106:
+        *q++='O'; *q++='E';
+        break;
+      case -92:
+      case -124:
+        *q++='A'; *q++='E';
+        break;
+      case -68:
+      case -100:
+        *q++='U'; *q++='E';
+        break;
+      case -97:
+        *q++='S'; *q++='S';
+        break;
+      }
+      break;
+    case ' ':
+      // send the word and continue analyzing the input text
+      *q = 0;
+      if (strlen(word) > 0) {
+        cwsnt->insert(word);
+        cwsnt->redraw();
+        send_cw(word);
+      }
+      cwsnt->insert(" ");
+      cwsnt->redraw();
+      send_cw(" ");
+      q=word;
+      break;
+    case 0:
+      *q=0;
+      // send CW string obtained so far and that's it
+      if (strlen(word) > 0) {
+        cwsnt->insert(word);
+        cwsnt->redraw();
+        send_cw(word);
+      }
+      q=word;
+      break;
+    default:
+      if (q-word < 250) *q++ = toupper(*p);
     }
-    // if flag, or if line position is large, insert line break
-    pos=cwsnt->insert_position();
-    i=pos-cwsnt->line_start(pos);
-    if (i>50) flag=1;
-    if (flag) cwsnt->insert("\n"); else cwsnt->insert(" ");
-    // Display no more than three lines. Delete the first one if there are too many.
-    line=cwsntbuf->count_lines(0,pos);
-    if (line > 3) {
-      p1=cwsntbuf->line_start(0);
-      p2=cwsntbuf->line_end(0);
-      cwsntbuf->remove(p1,p2+1);
-    }
+    if (*p == 0) break;
+    p++;
+  }
+  if (flag) cwsnt->insert("\n");
+  // Display no more than three lines. Delete the first one if there are too many.
+  pos=cwsnt->insert_position();
+  line=cwsntbuf->count_lines(0,pos);
+  if (line > 3) {
+    p1=cwsntbuf->line_start(0);
+    p2=cwsntbuf->line_end(0);
+    cwsntbuf->remove(p1,p2+1);
+    cwsnt->redraw();
+  }
 }
 
 void do_cwinp(Fl_Widget *w, void* data )
@@ -1165,11 +1174,11 @@ void do_cwinp(Fl_Widget *w, void* data )
     // Normally, the blank will be at the end of the string, so the input field gets cleared.
     p=strchr(val, ' ');
     if (p) {
-	strcpy(buffer, val);
-	p=strchr(buffer, ' ');
-	*p=0;
+    strcpy(buffer, val);
+    p=strchr(buffer, ' ');
+    *p=0;
         splitCW(buffer, 0);
-	((Fl_Input *) w)->value(p+1);
+    ((Fl_Input *) w)->value(p+1);
     }
 }
 

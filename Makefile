@@ -8,11 +8,12 @@
 #
 ########################################################################################################
 
-HAMLIB_INCLUDE=	-Ihamlib-local/include -Ihamlib-local/src -Ihamlib-local/tests
+HAMLIB_INCLUDE=	-Ihamlib-local/include -Ihamlib-local/include/hamlib -Ihamlib-local/src -Ihamlib-local/tests
+HAMLIB_DEFINE= -DIN_HAMLIB
 HAMLIB_LIB=	hamlib-local/src/.libs/libhamlib.a
 
 #
-OBJS=		Rig.o Hamlib.o Winkey.o rigctl_parse.o dumpcaps.o
+OBJS=		Rig.o Hamlib.o Winkey.o rigctl_parse.o dumpcaps.o dumpstate.o rig_tests.o
 LIBS=		-lfltk -lportaudio -lpthread
 CFLAGS?=	-O
 CXXFLAGS?=	-O
@@ -24,10 +25,16 @@ Hamlib.o:	Hamlib.c hamlib-local
 	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) -c Hamlib.c
 
 rigctl_parse.o: hamlib-local
-	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) -c hamlib-local/tests/rigctl_parse.c -o rigctl_parse.o
+	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) $(HAMLIB_DEFINE) -c hamlib-local/tests/rigctl_parse.c -o rigctl_parse.o
 
 dumpcaps.o: hamlib-local
-	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) -c hamlib-local/tests/dumpcaps.c -o dumpcaps.o
+	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) $(HAMLIB_DEFINE) -c hamlib-local/tests/dumpcaps.c -o dumpcaps.o
+
+dumpstate.o: hamlib-local
+	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) $(HAMLIB_DEFINE) -c hamlib-local/tests/dumpstate.c -o dumpstate.o
+
+rig_tests.o: hamlib-local
+	$(CC) $(CFLAGS) $(HAMLIB_INCLUDE) $(HAMLIB_DEFINE) -c hamlib-local/tests/rig_tests.c -o rig_tests.o
 
 .PHONY: hamlib-local
 hamlib-local:

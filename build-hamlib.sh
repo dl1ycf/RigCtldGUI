@@ -9,7 +9,7 @@ if [ ! -d hamlib-local ]; then
 fi
 cd hamlib-local
 git pull
-git checkout 4.5.5
+git checkout 4.6.5
 
 if [ ! -f config.log  -o ! -f Makefile ]; then
 ./bootstrap

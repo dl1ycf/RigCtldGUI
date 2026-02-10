@@ -16,7 +16,7 @@ What is currently implemented is
 - change speed of CW keyer in the rig
 - change mode (CW, LSB, USB, USB-DATA)
 - send pre-defined CW texts (CQ calls etc.)
-- send Voice samples ("voice keyer"
+- send auto from .wav files ("voice keyer")
 - send single-tone and two-tone signal
 - go to "TUNE" mode with 10 or 25 watt
 
@@ -37,32 +37,32 @@ This way, you can, for example, run a digimode program and change the RF output 
 by clicking the appropriate button on this GUI, it is also possible to connect from
 several programs (say, fldigi and a logbook program) to your rig at the same time.
 
-The graphical user interface uses the FLTK library, so a "devel" version of FLTK
-(version 1.3) must be installed. Compiling hamlib requires the "autoconf" package.
-For the voicy-keying and single/two tone experiments one needs the PortAudio
+The graphical user interface uses the FLTK library, so a developer version of FLTK
+must be installed. Compiling hamlib requires the "autoconf" package.
+For the voice keyer and single/two tone experiments one needs the PortAudio
 library. The following packages should be installed
 
 a) packages needed for compilation in general
 =============================================
 
-sudo apt-get install gcc
-sudo apt-get install g++
-sudo apt-get install make
-sudo apt-get install autoconf
-sudo apt-get install automake
+sudo apt-get install gcc \
+sudo apt-get install g++ \
+sudo apt-get install make \
+sudo apt-get install autoconf \
+sudo apt-get install automake \
 sudo apt-get install libtool
 
 b) packages needed for RigCtldGUI
 =================================
 
-sudo apt-get install portaudio19-dev
+sudo apt-get install portaudio19-dev \
 sudo apt-get install libfltk1.3-dev
 
 
 
 There is a (preliminary) small documentation in the files
 
-RigControllerManual.odt
+RigControllerManual.odt \
 RigControllerManual.pdf
 
 
